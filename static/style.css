@@ -86,3 +86,17 @@
   padding: 12px 14px;
   margin-top: 12px;
 }
+
+
+/* Directorio por lugar de trabajo */
+.directory-filters{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin:18px 0}
+.directory-filters label{display:flex;flex-direction:column;gap:8px;font-weight:600}
+.directory-filters select,.directory-filters input{width:100%;min-width:0;box-sizing:border-box;padding:12px;border:1px solid #ded8cc;border-radius:12px;background:#fff;font:inherit;color:#292722}
+.directory-summary,.workplace-group-heading{display:flex;align-items:center;justify-content:space-between;gap:16px}
+.directory-summary{border-top:1px solid #eee6d8;padding-top:16px;flex-wrap:wrap}
+.directory-summary>span,.workplace-group-heading span{font-size:13px;color:#716b60}
+.directory-summary small{display:block;color:#716b60;font-size:12px}
+.directory-summary strong{font-size:26px}
+.workplace-group{margin:26px 0}.workplace-group-heading{margin-bottom:12px;padding:0 4px}
+.workplace-group-heading h2{margin:0 0 4px;font-size:20px}.workplace-group-heading>strong{font-size:20px}
+@media(max-width:640px){.directory-filters{grid-template-columns:1fr}.directory-summary{align-items:flex-start}.workplace-group-heading{align-items:flex-start}.workplace-group-heading h2{font-size:17px}.workplace-group-heading>strong{font-size:18px;white-space:nowrap}}
