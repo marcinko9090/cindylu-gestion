@@ -531,12 +531,24 @@ def webhook():
         except Exception:pass
     return jsonify(ok=True)
 
+class ShopifyMoneyError(ValueError):
+    """An external order needs review; never round it into the local ledger."""
+
+def shopify_amount(o,field,label):
+    money=o[field]['shopMoney']
+    number=str(o.get('name') or o.get('id') or 'Pedido')[:100]
+    if money['currencyCode']!='CLP':
+        raise ShopifyMoneyError(number+': '+label+' no está en CLP. No se modificó esta compra.')
+    try:return amount(money['amount'])
+    except ValueError:
+        value=str(money['amount'])[:60]
+        raise ShopifyMoneyError(number+': '+label+' recibido de Shopify ('+value+' CLP) tiene decimales, es negativo o está fuera del rango permitido. No se redondeó ni se modificó esta compra.') from None
+
 SHOP_QUERY='''query Orders($cursor:String){orders(first:50,after:$cursor,sortKey:UPDATED_AT){pageInfo{hasNextPage endCursor} nodes{id name createdAt updatedAt cancelledAt displayFinancialStatus currentTotalPriceSet{shopMoney{amount currencyCode}} totalOutstandingSet{shopMoney{amount currencyCode}} customer{id displayName email phone} shippingAddress{phone firstName lastName} lineItems(first:250){pageInfo{hasNextPage endCursor} nodes{title quantity variantTitle}}}}}'''
 def import_shop_order(c,o,allow_new=True):
-    cur=o['currentTotalPriceSet']['shopMoney']['currencyCode']
-    if cur!='CLP':raise ValueError('Se encontró una compra en otra moneda; esta versión trabaja en CLP.')
-    total=amount(o['currentTotalPriceSet']['shopMoney']['amount']); outstanding=amount(o['totalOutstandingSet']['shopMoney']['amount'])
-    if outstanding>total:raise ValueError('Saldo de Shopify inconsistente.')
+    total=shopify_amount(o,'currentTotalPriceSet','total')
+    outstanding=shopify_amount(o,'totalOutstandingSet','saldo')
+    if outstanding>total:raise ShopifyMoneyError(str(o.get('name','Pedido'))[:100]+': el saldo de Shopify supera el total. No se modificó esta compra.')
     cfg=settings(c)
     mode=cfg.get('shopify_credit_mode','credit_when_paid')
     # En Cindy Lú se vende en cuotas aunque en Shopify se marque como Pagado (outstanding==0).
@@ -610,6 +622,7 @@ def sync_shop():
     if DEMO:raise ValueError('Shopify no está disponible en demostración.')
     if not SYNC_LOCK.acquire(False):raise ValueError('Ya hay una sincronización en curso.')
     summary={'count':0,'linked':0,'updated':0,'pending':0,'conflict':0}
+    issues=[]
     try:
         cursor=None
         while True:
@@ -621,12 +634,16 @@ def sync_shop():
             with db(True) as c:
                 for o in page['nodes']:
                     if o['lineItems']['pageInfo']['hasNextPage']:raise ValueError('Un pedido supera 250 artículos; requiere importación ampliada. No se importó parcialmente.')
-                    outcome=import_shop_order(c,o,allow_new=False)
+                    try:outcome=import_shop_order(c,o,allow_new=False)
+                    except ShopifyMoneyError as error:
+                        outcome='conflict'
+                        if len(issues)<100:issues.append(str(error))
                     summary[outcome]+=1;summary['count']+=1
             if not page['pageInfo']['hasNextPage']:break
             cursor=page['pageInfo']['endCursor']
         with db(True) as c:
             setval(c,'sync_at',now());setval(c,'sync_error','');setval(c,'shopify_sync_summary',summary)
+            setval(c,'shopify_sync_issues',issues)
             setval(c,'shopify_auto_sync',True);audit(c,'shopify_sync',summary)
         return summary
     finally:SYNC_LOCK.release()

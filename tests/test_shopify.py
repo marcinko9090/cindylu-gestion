@@ -97,6 +97,41 @@ class ShopifyReconciliationTests(unittest.TestCase):
             self.assertEqual(a.import_shop_order(c,order,allow_new=False),'pending')
             self.assertEqual(c.execute('SELECT COUNT(*) FROM orders').fetchone()[0],1)
             self.assertEqual(c.execute('SELECT COUNT(*) FROM clients').fetchone()[0],1)
+    def test_decimal_zeros_are_valid_pesos(self):
+        self.excel();order=self.order()
+        order['currentTotalPriceSet']['shopMoney']['amount']='100001.00'
+        order['totalOutstandingSet']['shopMoney']['amount']='0.00'
+        with a.db(True) as c:
+            self.assertEqual(a.import_shop_order(c,order,allow_new=False),'linked')
+            self.assertEqual(a.balance(c,self.oid),79001)
+    def test_non_integral_or_negative_shopify_money_never_changes_ledger(self):
+        self.excel()
+        with a.db() as c:
+            before={t:a.rows(c,'SELECT * FROM '+t) for t in ['orders','payments','allocations','installments']}
+        for field in ['currentTotalPriceSet','totalOutstandingSet']:
+            for value in ['10000.50','-100','NaN','Infinity','100000000001']:
+                with self.subTest(field=field,value=value):
+                    order=self.order();order[field]['shopMoney']['amount']=value
+                    with self.assertRaises(a.ShopifyMoneyError) as error,a.db(True) as c:
+                        a.import_shop_order(c,order,allow_new=False)
+                    self.assertIn('#1',str(error.exception))
+                    with a.db() as c:
+                        for t in before:self.assertEqual(a.rows(c,'SELECT * FROM '+t),before[t])
+    def test_sync_skips_bad_money_reports_order_and_processes_other_pages(self):
+        self.excel();bad=self.order();bad['name']='#BAD';bad['id']='gid://shopify/Order/bad'
+        bad['totalOutstandingSet']['shopMoney']['amount']='-1.25'
+        good=self.order()
+        pages=[{'data':{'orders':{'nodes':[bad],'pageInfo':{'hasNextPage':True,'endCursor':'next'}}}},
+               {'data':{'orders':{'nodes':[good],'pageInfo':{'hasNextPage':False}}}}]
+        with patch.object(a.shopify_auth,'access_token',return_value='fake'),patch.object(a,'httpjson',side_effect=pages):
+            result=a.sync_shop()
+        self.assertEqual(result,{'count':2,'linked':1,'updated':0,'pending':0,'conflict':1})
+        with a.db() as c:
+            issues=a.settings(c)['shopify_sync_issues']
+            self.assertEqual(len(issues),1);self.assertIn('#BAD',issues[0]);self.assertIn('-1.25',issues[0])
+            self.assertEqual(a.balance(c,self.oid),79001)
+            self.assertEqual(c.execute('SELECT COUNT(*) FROM orders').fetchone()[0],1)
+            self.assertEqual(c.execute('SELECT COUNT(*) FROM payments').fetchone()[0],1)
     def test_sync_reports_pending_and_links(self):
         self.excel();order=self.order();other=copy.deepcopy(order);other['name']='#NEW';other['id']='gid://shopify/Order/2'
         page={'data':{'orders':{'nodes':[order,other],'pageInfo':{'hasNextPage':False}}}}
