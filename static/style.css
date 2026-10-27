@@ -118,3 +118,13 @@
  .workplace-group .client-tile p{grid-column:2;grid-row:2;font-size:11px}
  .workplace-group .client-tile>strong{grid-column:3;grid-row:1 / 3;font-size:15px}
 }
+
+
+/* Pending Shopify orders: compact review list. */
+.order-review-list{margin-top:16px}
+.order-review-row{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:16px;padding:16px 0;border-bottom:1px solid var(--border,#e8e1d6)}
+.order-review-row:last-child{border-bottom:0}
+.order-review-row p{margin:7px 0;overflow-wrap:anywhere}
+.order-review-amounts{display:flex;flex-wrap:wrap;gap:8px 24px;font-size:14px}
+.order-review-row>.statement-actions{align-content:start;max-width:220px;flex-direction:column;align-items:stretch}
+@media(max-width:680px){.order-review-row{grid-template-columns:1fr}.order-review-row>.statement-actions{max-width:none;flex-direction:row;flex-wrap:wrap}.order-review-amounts{flex-direction:column;gap:6px}}

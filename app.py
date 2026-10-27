@@ -4,6 +4,7 @@ from pathlib import Path
 from contextlib import contextmanager
 from decimal import Decimal, InvalidOperation
 import shopify_auth
+from shopify_review import review_record, merge_review_records
 from flask import Flask, request, session, jsonify, send_file, render_template
 from werkzeug.security import generate_password_hash, check_password_hash
 
@@ -622,7 +623,7 @@ def sync_shop():
     if DEMO:raise ValueError('Shopify no está disponible en demostración.')
     if not SYNC_LOCK.acquire(False):raise ValueError('Ya hay una sincronización en curso.')
     summary={'count':0,'linked':0,'updated':0,'pending':0,'conflict':0}
-    issues=[]
+    issues=[];review_queue=[];completed=set()
     try:
         cursor=None
         while True:
@@ -634,21 +635,40 @@ def sync_shop():
             with db(True) as c:
                 for o in page['nodes']:
                     if o['lineItems']['pageInfo']['hasNextPage']:raise ValueError('Un pedido supera 250 artículos; requiere importación ampliada. No se importó parcialmente.')
+                    error=None
                     try:outcome=import_shop_order(c,o,allow_new=False)
-                    except ShopifyMoneyError as error:
-                        outcome='conflict'
-                        if len(issues)<100:issues.append(str(error))
+                    except ShopifyMoneyError as exc:
+                        error=str(exc);outcome='conflict'
+                        if len(issues)<100:issues.append(error)
+                    if outcome in ('conflict','pending'):review_queue.append(review_record(c,o,outcome,error,now(),balance))
+                    else:completed.add(o['id'])
                     summary[outcome]+=1;summary['count']+=1
             if not page['pageInfo']['hasNextPage']:break
             cursor=page['pageInfo']['endCursor']
         with db(True) as c:
             setval(c,'sync_at',now());setval(c,'sync_error','');setval(c,'shopify_sync_summary',summary)
             setval(c,'shopify_sync_issues',issues)
+            setval(c,'shopify_review_orders',merge_review_records(settings(c).get('shopify_review_orders',[]),review_queue,completed))
             setval(c,'shopify_auto_sync',True);audit(c,'shopify_sync',summary)
         return summary
     finally:SYNC_LOCK.release()
 @app.post('/api/shopify/sync')
 def sync():return jsonify(sync_shop())
+@app.post('/api/shopify/review')
+def save_shopify_review():
+    d=request.get_json();sid=str(d.get('shopify_id',''));fingerprint=str(d.get('fingerprint',''))
+    status=d.get('status');note=str(d.get('note','')).strip()
+    if status not in ('pending','reviewed') or len(note)>2000 or (status=='reviewed' and len(note)<5):
+        raise ValueError('Agrega una observación de al menos 5 caracteres para marcar como revisado (máximo 2000).')
+    with db(True) as c:
+        records=settings(c).get('shopify_review_orders',[])
+        item=next((r for r in records if r['shopify_id']==sid),None)
+        if not item:raise ValueError('El pedido ya no está en revisión. Actualiza la página.')
+        if item['fingerprint']!=fingerprint:raise ValueError('El pedido cambió en Shopify. Actualiza y revisa sus nuevos datos.')
+        item.update(status=status,note=note,reviewed_at=now(),reviewed_by=session['user'])
+        setval(c,'shopify_review_orders',records)
+        audit(c,'shopify_review_saved',{'shopify_id':sid,'status':status,'user':session['user']})
+    return jsonify(ok=True)
 @app.post('/api/shopify/test')
 def test_shopify_connection():
     if DEMO:raise ValueError('Shopify no está disponible en demostración.')
@@ -907,4 +927,5 @@ if __name__=='__main__':
     print('Cindy Lú disponible en http://localhost:'+str(port),flush=True)
     from waitress import serve
     serve(app,host=host,port=port,threads=8)
+
 
