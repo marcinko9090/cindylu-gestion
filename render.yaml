@@ -1,0 +1,31 @@
+services:
+  - type: web
+    name: cindylu-gestion
+    runtime: python
+    plan: 0.5c-512mb
+    region: oregon
+    branch: main
+    numInstances: 1
+    buildCommand: pip install -r requirements.txt
+    startCommand: python app.py --no-browser
+    healthCheckPath: /api/health
+    autoDeployTrigger: checksPass
+    disk:
+      name: cindylu-datos
+      mountPath: /var/data
+      sizeGB: 1
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.12.12
+      - key: PYTHONUNBUFFERED
+        value: "1"
+      - key: CINDY_DATA
+        value: /var/data
+      - key: CINDY_HOST
+        value: 0.0.0.0
+      - key: CINDY_HTTPS
+        value: "1"
+      - key: CINDY_TRUST_PROXY
+        value: "1"
+      - key: CINDY_DEMO
+        value: "0"
