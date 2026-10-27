@@ -100,3 +100,21 @@
 .workplace-group{margin:26px 0}.workplace-group-heading{margin-bottom:12px;padding:0 4px}
 .workplace-group-heading h2{margin:0 0 4px;font-size:20px}.workplace-group-heading>strong{font-size:20px}
 @media(max-width:640px){.directory-filters{grid-template-columns:1fr}.directory-summary{align-items:flex-start}.workplace-group-heading{align-items:flex-start}.workplace-group-heading h2{font-size:17px}.workplace-group-heading>strong{font-size:18px;white-space:nowrap}}
+
+/* Filas compactas para el directorio de clientas */
+.workplace-group .client-list{display:flex;flex-direction:column;gap:0;border:1px solid #e7e0d5;border-radius:14px;overflow:hidden;background:#fff}
+.workplace-group .client-list .client-tile{display:grid;grid-template-columns:34px minmax(0,1fr) minmax(125px,170px) minmax(110px,150px);align-items:center;gap:12px;width:100%;min-height:64px;height:auto;margin:0;padding:10px 16px;border:0;border-bottom:1px solid #eee7dd;border-radius:0;box-shadow:none;text-align:left;transform:none;background:#fff}
+.workplace-group .client-list .client-tile:last-child{border-bottom:0}
+.workplace-group .client-list .client-tile:hover,.workplace-group .client-list .client-tile:focus-visible{background:#faf6ee;transform:none;box-shadow:inset 3px 0 #b78b39}
+.workplace-group .client-tile .client-avatar{grid-column:1;grid-row:1;width:32px;height:32px;min-width:32px;font-size:11px;margin:0}
+.workplace-group .client-tile h3{grid-column:2;grid-row:1;margin:0;font-size:14px;line-height:1.3;overflow-wrap:anywhere}
+.workplace-group .client-tile p{grid-column:3;grid-row:1;margin:0;font-size:12px;line-height:1.3;color:#716b60}
+.workplace-group .client-tile>strong{grid-column:4;grid-row:1;margin:0;font-size:17px;line-height:1.2;text-align:right;white-space:nowrap}
+.workplace-group .client-tile>small{display:none}
+@media(max-width:680px){
+ .workplace-group .client-list .client-tile{grid-template-columns:28px minmax(0,1fr) auto;gap:3px 10px;min-height:64px;padding:10px 12px}
+ .workplace-group .client-tile .client-avatar{width:28px;height:28px;min-width:28px;grid-row:1 / 3}
+ .workplace-group .client-tile h3{grid-column:2;grid-row:1;font-size:13px}
+ .workplace-group .client-tile p{grid-column:2;grid-row:2;font-size:11px}
+ .workplace-group .client-tile>strong{grid-column:3;grid-row:1 / 3;font-size:15px}
+}
