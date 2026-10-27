@@ -57,21 +57,13 @@ def pdf(data):
         confirmed_paid=sum(x['amount'] for x in o.get('payments',[]))
         story.append(p('Total compra: '+money(o['total'])+' − Pagos previos: '+money(o.get('base_paid',0))+' − Abonos confirmados: '+money(confirmed_paid)+' = Saldo pendiente: '+money(o['balance']),'Heading3'))
         if o['review']:story.append(p('POR REVISAR: '+o['review']+' Este documento refleja el saldo local registrado.','Muted'))
-        if o['base_paid']:story.append(p('Pagos previos al registro: '+money(o['base_paid'])+'. Monto a distribuir en cuotas: '+money(o['total']-o['base_paid'])+'.','Muted'))
-        if o['installments']:
-            rows=[['Cuota','Vencimiento','Valor cuota','Abonado','Resta pagar','Detalle / Estado']]
-            for i in o['installments']:
-                pending=i['amount']-i['paid'];status='Pagada' if not pending else 'Abono parcial' if i['paid'] else 'Pendiente'
-                allocs=i.get('allocations',[])
-                detail=status+(' ('+', '.join(money(a['amount'])+' el '+date(a['date']) for a in allocs)+')' if allocs else '')
-                rows.append([str(i['number'])+'/'+str(len(o['installments'])),date(i['due']),money(i['amount']),money(i['paid']),money(pending),detail])
-            story.extend([Spacer(1,5),table(rows,[40,68,72,72,75,168])])
-        else:story.append(p('Plan de cuotas por definir. El saldo está incluido en el total.','Muted'))
+        if o['base_paid']:story.append(p('Pagos previos al registro: '+money(o['base_paid'])+'.','Muted'))
         if o['payments']:
             story.extend([p('Abonos confirmados de esta compra','Heading3'),table([['Fecha de pago','Monto','Medio']]+[[date(x['date']),money(x['amount']),x['method']] for x in o['payments']],[165,165,165])])
         else:story.append(p('Sin abonos confirmados en esta plataforma.','Muted'))
-    story += [Spacer(1,10),p('TOTAL PENDIENTE: '+money(data['balance']),'Gold'),p('Los abonos de la tabla ya están descontados en las cuotas: no se restan nuevamente. Los comprobantes pendientes de revisión no descuentan deuda.','Muted')]
+    story += [Spacer(1,10),p('TOTAL PENDIENTE: '+money(data['balance']),'Gold'),p('Los abonos confirmados ya están descontados del saldo. Los comprobantes pendientes de revisión no descuentan deuda.','Muted')]
     def footer(canvas,doc):
         canvas.setFont('Helvetica',8);canvas.setFillColor(colors.HexColor('#776b58'));canvas.drawString(50,25,'Cindy Lú · Estado de cuenta al momento de emisión');canvas.drawRightString(A4[0]-50,25,'Página '+str(doc.page))
     SimpleDocTemplate(buf,pagesize=A4,rightMargin=50,leftMargin=50,topMargin=32,bottomMargin=38,title='Estado de cuenta - Cindy Lú').build(story,onFirstPage=footer,onLaterPages=footer)
     buf.seek(0);return buf
+

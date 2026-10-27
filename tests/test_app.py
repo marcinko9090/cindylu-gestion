@@ -154,10 +154,11 @@ class FinanceTests(unittest.TestCase):
         with a.db(True) as c:a.import_shop_order(c,order)
         with a.db() as c:
             o=a.one(c,"SELECT * FROM orders WHERE source='shopify'");self.assertTrue(o['review']);self.assertEqual(o['base_paid'],30000)
-    def test_bad_money_and_unplanned(self):
+    def test_bad_money_and_payment_without_installments(self):
         for n in [-1,1.5,'NaN','Infinity']:
             with self.assertRaises(ValueError):a.amount(n)
-        with self.assertRaises(ValueError):self.payment(100)
+        self.payment(100)
+        with a.db() as c:self.assertEqual(a.balance(c,self.oid),99901)
     def test_signature_rejected(self):
         self.assertEqual(self.http.post('/webhooks/whatsapp',json={}).status_code,403)
     def test_upload_validation(self):
@@ -233,8 +234,7 @@ class FinanceTests(unittest.TestCase):
             self.assertEqual(o['base_paid'],0)
             self.assertEqual(a.balance(c,o['id']),90000)
             ins=a.rows(c,'SELECT * FROM installments WHERE order_id=? ORDER BY number',(o['id'],))
-            self.assertEqual(len(ins),3)
-            self.assertEqual([i['amount'] for i in ins],[30000,30000,30000])
+            self.assertEqual(len(ins),0)
         with self.http.session_transaction() as s:s['user']=1;s['csrf']='test'
         # Pay 30000 then adjust plan to 2 installments and verify payment is preserved and re-allocated
         with a.db(True) as c:a.pay(c,{'order_id':o['id'],'amount':30000,'operation':'shopcreditpay00001'})
@@ -270,7 +270,7 @@ class FinanceTests(unittest.TestCase):
             o=a.one(c,'SELECT * FROM orders WHERE client_id=?',(cl['id'],))
             self.assertEqual(a.balance(c,o['id']),60000)
             ins=a.rows(c,'SELECT * FROM installments WHERE order_id=?',(o['id'],))
-            self.assertEqual(len(ins),3)
+            self.assertEqual(len(ins),0)
 
     def test_cindy_ledger_fifo_orders_and_payments_import(self):
         import io
@@ -306,3 +306,4 @@ class FinanceTests(unittest.TestCase):
             self.assertEqual(p_cnt,3)
 
 if __name__=='__main__':unittest.main(verbosity=2)
+

@@ -3,6 +3,11 @@ import hashlib
 import json
 from decimal import Decimal, InvalidOperation
 
+def shopify_items(order):
+    return [{'title':i['title']+(' · '+i['variantTitle'] if i.get('variantTitle') else ''),
+             'quantity':i.get('currentQuantity',i['quantity'])}
+            for i in order.get('lineItems',{}).get('nodes',[]) if i.get('currentQuantity',i['quantity'])>0]
+
 def review_record(c, order, outcome, error, stamp, balance):
     def money(field):
         m=order.get(field,{}).get('shopMoney',{})
@@ -33,7 +38,7 @@ def review_record(c, order, outcome, error, stamp, balance):
     fingerprint=hashlib.sha256(json.dumps(order,sort_keys=True,ensure_ascii=False).encode()).hexdigest()
     numeric_id=str(order['id']).rsplit('/',1)[-1]
     return {'shopify_id':order['id'],'fingerprint':fingerprint,'number':number,'purchased':order.get('createdAt',''),
-            'client_name':label,'total':total,'outstanding':outstanding,'currency':currency,'kind':kind,'reason':reason,
+            'client_name':label,'items':shopify_items(order),'total':total,'outstanding':outstanding,'currency':currency,'kind':kind,'reason':reason,
             'local_order_id':local['id'] if local else None,'client_id':local['client_id'] if local else None,
             'local_total':local['total'] if local else None,'local_balance':balance(c,local['id']) if local else None,
             'shopify_numeric_id':numeric_id if numeric_id.isdigit() else '',

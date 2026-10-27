@@ -4,7 +4,7 @@ from pathlib import Path
 from contextlib import contextmanager
 from decimal import Decimal, InvalidOperation
 import shopify_auth
-from shopify_review import review_record, merge_review_records
+from shopify_review import review_record, merge_review_records, shopify_items
 from flask import Flask, request, session, jsonify, send_file, render_template
 from werkzeug.security import generate_password_hash, check_password_hash
 
@@ -124,7 +124,6 @@ def pay(c,d):
         r=one(c,'SELECT * FROM receipts WHERE id=?',(rid,))
         if r['client_id']!=o['client_id'] or r['status']!='pending':raise ValueError('Comprobante ya revisado o de otra clienta.')
     ins=rows(c,'''SELECT i.*,i.amount-COALESCE((SELECT SUM(a.amount) FROM allocations a JOIN payments p ON p.id=a.payment_id WHERE a.installment_id=i.id AND p.reversed=0),0) pending FROM installments i WHERE order_id=? ORDER BY due,number''',(oid,))
-    if not ins: raise ValueError('Primero define las cuotas de esta compra (puede ser una sola).')
     method=d.get('method','transferencia')
     if method not in ('transferencia','efectivo','otro'): raise ValueError('Medio de pago inválido.')
     pid=c.execute('INSERT INTO payments(order_id,amount,date,method,receipt_id,operation,note,created) VALUES(?,?,?,?,?,?,?,?)',(oid,a,date(d.get('date',today())),method,rid,op,str(d.get('note',''))[:1000],now())).lastrowid
@@ -132,7 +131,6 @@ def pay(c,d):
     for i in ins:
         take=min(left,i['pending'])
         if take>0:c.execute('INSERT INTO allocations VALUES(?,?,?)',(pid,i['id'],take)); left-=take
-    if left:raise ValueError('El plan no coincide con el saldo; revisa la compra.')
     if rid:c.execute("UPDATE receipts SET status='confirmed' WHERE id=?",(rid,))
     audit(c,'payment_confirmed',{'id':pid,'amount':a,'order':oid})
     return pid
@@ -545,7 +543,7 @@ def shopify_amount(o,field,label):
         value=str(money['amount'])[:60]
         raise ShopifyMoneyError(number+': '+label+' recibido de Shopify ('+value+' CLP) tiene decimales, es negativo o está fuera del rango permitido. No se redondeó ni se modificó esta compra.') from None
 
-SHOP_QUERY='''query Orders($cursor:String){orders(first:50,after:$cursor,sortKey:UPDATED_AT){pageInfo{hasNextPage endCursor} nodes{id name createdAt updatedAt cancelledAt displayFinancialStatus currentTotalPriceSet{shopMoney{amount currencyCode}} totalOutstandingSet{shopMoney{amount currencyCode}} customer{id displayName email phone} shippingAddress{phone firstName lastName} lineItems(first:250){pageInfo{hasNextPage endCursor} nodes{title quantity variantTitle}}}}}'''
+SHOP_QUERY='''query Orders($cursor:String){orders(first:50,after:$cursor,sortKey:UPDATED_AT){pageInfo{hasNextPage endCursor} nodes{id name createdAt updatedAt cancelledAt displayFinancialStatus currentTotalPriceSet{shopMoney{amount currencyCode}} totalOutstandingSet{shopMoney{amount currencyCode}} customer{id displayName email phone} shippingAddress{phone firstName lastName} lineItems(first:250){pageInfo{hasNextPage endCursor} nodes{title quantity currentQuantity variantTitle}}}}}'''
 def import_shop_order(c,o,allow_new=True):
     total=shopify_amount(o,'currentTotalPriceSet','total')
     outstanding=shopify_amount(o,'totalOutstandingSet','saldo')
@@ -557,7 +555,7 @@ def import_shop_order(c,o,allow_new=True):
     elif mode=='credit_when_paid' and outstanding==0:base_paid=0
     else:base_paid=total-outstanding
     old=c.execute('SELECT * FROM orders WHERE shopify_id=?',(o['id'],)).fetchone()
-    items=[{'title':i['title']+(' · '+i['variantTitle'] if i.get('variantTitle') else ''),'quantity':i['quantity']} for i in o['lineItems']['nodes']]
+    items=shopify_items(o)
     snapshot=json.dumps({'total':total,'outstanding':outstanding,'cancelled':o.get('cancelledAt'),'items':items},sort_keys=True,ensure_ascii=False)
     cust=o.get('customer') or {};shipping=o.get('shippingAddress') or {}; sid=cust.get('id')
     try:remote_phone=phone(cust.get('phone') or shipping.get('phone'))
@@ -609,12 +607,6 @@ def import_shop_order(c,o,allow_new=True):
         else:cid=c.execute('INSERT INTO clients(name,phone,email,shopify_id) VALUES(?,?,?,?)',(name,p,cust.get('email') or '',sid)).lastrowid
     status='cancelled' if o.get('cancelledAt') else 'active'
     oid=c.execute('INSERT INTO orders(client_id,shopify_id,number,purchased,total,base_paid,items,source,status,remote,updated) VALUES(?,?,?,?,?,?,?,?,?,?,?)',(cid,o['id'],o['name'],o['createdAt'],total,base_paid,json.dumps(items,ensure_ascii=False),'shopify',status,snapshot,now())).lastrowid
-    def_ins=int(cfg.get('shopify_default_installments') or 0)
-    if status=='active' and def_ins>0 and (total-base_paid)>=def_ins:
-        pdate=dt.date.fromisoformat(str(o['createdAt'])[:10])
-        m=pdate.year*12+pdate.month; y,mo=divmod(m,12); mo+=1
-        first_due=dt.date(y,mo,min(pdate.day,calendar.monthrange(y,mo)[1])).isoformat()
-        make_plan(c,{'order_id':oid,'count':def_ins,'first':first_due,'frequency':'monthly'})
     return 'created'
 SYNC_LOCK=threading.Lock()
 def sync_shop():
@@ -680,14 +672,7 @@ def test_shopify_connection():
     return jsonify(ok=True,shop=result['data']['shop']['name'])
 @app.post('/api/reminders')
 def reminder():
-    d=request.get_json(); at=dt.datetime.fromisoformat(d['at'])
-    if at.tzinfo is None or at<=dt.datetime.now(dt.timezone.utc):raise ValueError('Elige una fecha y hora futura.')
-    body=str(d.get('body','')).strip()
-    if not body or len(body)>1000:raise ValueError('Mensaje obligatorio (máximo 1000 caracteres).')
-    with db(True) as c:
-        one(c,'SELECT id FROM clients WHERE id=?',(int(d['client_id']),))
-        c.execute('INSERT INTO reminders(client_id,at,body) VALUES(?,?,?)',(int(d['client_id']),at.astimezone(dt.timezone.utc).isoformat(),body))
-    return jsonify(ok=True)
+    raise ValueError('Las fechas de cobro están desactivadas. Registra los abonos en la ficha de la clienta.')
 @app.post('/api/reminders/<int:rid>/cancel')
 def cancel_reminder(rid):
     with db(True) as c:c.execute("UPDATE reminders SET status='cancelled' WHERE id=? AND status='pending'",(rid,))
@@ -745,21 +730,7 @@ def worker():
                 try:sync_shop()
                 except Exception as e:
                     with db(True) as c:setval(c,'sync_error',str(e)[:300])
-            with db(True) as c:
-                cfg=settings(c); jobs=[]
-                if not DEMO and cfg['sending'] and os.getenv('WA_ACCESS_TOKEN'):
-                    for r in rows(c,"SELECT * FROM reminders WHERE status='pending' AND at<=? LIMIT 10",(now(),)):
-                        pending=c.execute("SELECT 1 FROM receipts WHERE client_id=? AND status='pending'",(r['client_id'],)).fetchone()
-                        if pending:continue
-                        total=sum(balance(c,o['id']) for o in rows(c,"SELECT id FROM orders WHERE client_id=? AND status='active'",(r['client_id'],)))
-                        if total<=0:c.execute("UPDATE reminders SET status='cancelled' WHERE id=?",(r['id'],));continue
-                        c.execute("UPDATE reminders SET status='sending' WHERE id=?",(r['id'],));jobs.append(r)
-            for r in jobs:
-                try:
-                    send_message(r['client_id'],r['body'],True)
-                    with db(True) as c:c.execute("UPDATE reminders SET status='sent' WHERE id=?",(r['id'],))
-                except Exception as e:
-                    with db(True) as c:c.execute("UPDATE reminders SET status='review',error=? WHERE id=?",(str(e)[:300],r['id']))
+            # Payment dates remain in the ledger. Scheduled collection dates are disabled.
         except Exception:pass
         time.sleep(20)
 @app.post('/api/clients/<int:cid>')
@@ -790,10 +761,6 @@ def confirm_cindy():
     d=request.get_json() or {}
     records=d.get('records',[])
     if not records or len(records)>10000:raise ValueError('Selecciona una hoja con hasta 10000 registros para importar.')
-    def_ins=max(0,min(60,int(d.get('installments_count') or 0)))
-    first_due=date(d.get('first_due') or today())
-    freq=d.get('frequency','monthly')
-    if freq not in ('monthly','weekly','fortnight'):freq='monthly'
     source_label=str(d.get('source_label') or 'Excel Cindy Lú')[:120]
     created_clients=0;updated_clients=0;created_orders=0;skipped_orders=0;created_payments=0
     seen_clients=set()
@@ -837,11 +804,7 @@ def confirm_cindy():
                 base_p=0 if use_real_payments else paid_prev
                 purch_dt=date(r.get('date') or today())
                 oid=c.execute('INSERT INTO orders(client_id,number,purchased,total,base_paid,items,source,updated) VALUES(?,?,?,?,?,?,?,?)',(cid,order_num,purch_dt,tot,base_p,json.dumps([{'title':itm_title,'quantity':1}],ensure_ascii=False),'excel',now())).lastrowid
-                ins_n=int(r.get('installments') or def_ins or (3 if use_real_payments else 0))
-                order_first_due=date(r.get('first_due') or first_due)
-                if ins_n>0 and (tot-base_p)>=ins_n:
-                    make_plan(c,{'order_id':oid,'count':ins_n,'first':order_first_due,'frequency':freq})
-                if use_real_payments and ins_n>0:
+                if use_real_payments:
                     for p_i,px in enumerate(pay_hist):
                         p_amt=amount(px.get('amount') or 0)
                         if p_amt>0:
@@ -903,9 +866,6 @@ def import_confirm():
                 tot=max(amount(d.get('total',debt)),debt)
                 art=str(d.get('article') or 'Saldo inicial importado (no es un pedido de Shopify)')[:250]
                 oid=c.execute('INSERT INTO orders(client_id,number,purchased,total,base_paid,items,source,updated) VALUES(?,?,?,?,?,?,?,?)',(cid,'SALDO-'+str(cid),date(d.get('date',today())),tot,tot-debt,json.dumps([{'title':art,'quantity':1}],ensure_ascii=False),'excel',now())).lastrowid
-                ins_cnt=min(60,max(0,int(d.get('installments') or 0)))
-                if ins_cnt>0 and debt>=ins_cnt:
-                    make_plan(c,{'order_id':oid,'count':ins_cnt,'first':date(d.get('first_due',today())),'frequency':'monthly'})
             inserted+=1
         audit(c,'clients_imported',{'inserted':inserted,'skipped':skipped})
     return jsonify(inserted=inserted,skipped=skipped)
