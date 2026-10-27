@@ -140,7 +140,9 @@ failures={}; fail_lock=threading.Lock()
 def security():
     if request.method == 'POST' and request.path != '/webhooks/whatsapp':
         origin=request.headers.get('Origin')
-        if origin and origin != request.host_url.rstrip('/'):
+        # Prefer the server-configured public origin behind a TLS proxy.
+        public_url = (os.getenv('CINDY_PUBLIC_URL') or os.getenv('RENDER_EXTERNAL_URL') or request.host_url).rstrip('/')
+        if origin and origin != public_url:
             return jsonify(error='Origen de solicitud no permitido.'),403
     if request.path in ('/','/api/session','/api/login','/api/setup','/api/health','/api/demo') or request.path.startswith('/static/') or request.path=='/webhooks/whatsapp':return
     if not session.get('user'):return jsonify(error='Inicia sesión.'),401
