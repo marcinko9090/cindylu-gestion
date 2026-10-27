@@ -25,3 +25,14 @@ Fuentes oficiales:
 - https://render.com/docs/blueprint-spec
 - https://render.com/docs/disks
 - https://render.com/pricing
+
+## Conectar Shopify desde Dev Dashboard
+
+Instalar la app en la tienda real con read_orders y read_customers. En Render > servicio > Environment agregar SHOPIFY_DOMAIN (dominio exacto myshopify.com), SHOPIFY_CLIENT_ID y SHOPIFY_CLIENT_SECRET. No pegarlos en el chat, código, capturas ni repositorio. Guardar y volver a desplegar. El servidor solicita acceso mediante client_credentials y lo renueva antes de sus 24 horas de vigencia; el token solo queda en memoria.
+
+En Configuración > Shopify pulsar Probar conexión. Esta prueba consulta la tienda y el acceso a pedidos sin importar datos. Después pulsar Actualizar productos de Shopify. La primera sincronización exitosa activa la consulta automática cada cinco minutos.
+
+En esta etapa la sincronización NO incorpora ventas nuevas ni genera deuda. Vincula únicamente una compra Excel con número único, total y contacto coincidentes, y completa sus artículos; conserva importe, abonos, fechas locales, cuotas y asignaciones. Una coincidencia ambigua queda sin vincular y se cuenta para revisión. Los cambios de total o anulaciones de compras ya vinculadas requieren revisión. Consultar las cantidades en el resumen de Configuración. Las ventas nuevas permanecen en Shopify y deben incorporarse mediante un flujo posterior de revisión explícita. El permiso read_orders limita el acceso a los últimos 60 días; no prometer historial completo sin habilitar read_all_orders.
+
+Documentación: https://shopify.dev/docs/apps/build/authentication-authorization/client-credentials-grant
+

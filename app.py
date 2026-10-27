@@ -3,6 +3,7 @@ import os, json, sqlite3, secrets, datetime as dt, calendar, hashlib, hmac, base
 from pathlib import Path
 from contextlib import contextmanager
 from decimal import Decimal, InvalidOperation
+import shopify_auth
 from flask import Flask, request, session, jsonify, send_file, render_template
 from werkzeug.security import generate_password_hash, check_password_hash
 
@@ -206,10 +207,10 @@ def state():
         ins=rows(c,'''SELECT i.*,i.amount-COALESCE((SELECT SUM(a.amount) FROM allocations a JOIN payments p ON p.id=a.payment_id WHERE a.installment_id=i.id AND p.reversed=0),0) pending FROM installments i ORDER BY due,number''')
         cfg=settings(c)
         allocs=rows(c,'SELECT a.payment_id,a.installment_id,a.amount,p.date,p.method,p.order_id FROM allocations a JOIN payments p ON p.id=a.payment_id WHERE p.reversed=0 ORDER BY p.date,p.id')
-        shop_tok=bool(os.getenv('SHOPIFY_ACCESS_TOKEN') or cfg.get('shopify_token'))
+        shop_tok=shopify_auth.configured(cfg)
         safe_cfg={k:v for k,v in cfg.items() if k!='shopify_token'}
         safe_cfg['has_shopify_token']=bool(cfg.get('shopify_token'))
-        return jsonify(statement_sends=rows(c,'SELECT id,client_id,body,phone,balance,filename,status,wa_id,error,created FROM statement_sends ORDER BY id'),clients=clients,orders=orders,installments=ins,payments=rows(c,'SELECT * FROM payments ORDER BY id DESC'),allocations=allocs,receipts=rows(c,'SELECT id,client_id,filename,mime,status,created FROM receipts ORDER BY id DESC'),messages=rows(c,'SELECT * FROM messages ORDER BY id'),reminders=rows(c,'SELECT * FROM reminders ORDER BY at'),payment_notices=rows(c,'SELECT * FROM payment_notices ORDER BY payment_id DESC'),settings=safe_cfg,today=today(),demo=DEMO,integrations={'shopify':shop_tok and not DEMO,'whatsapp':bool(os.getenv('WA_ACCESS_TOKEN') and os.getenv('WA_PHONE_NUMBER_ID') and os.getenv('WA_APP_SECRET')) and not DEMO,'shop':cfg.get('shopify_domain') or os.getenv('SHOPIFY_DOMAIN','cindylu.myshopify.com')})
+        return jsonify(statement_sends=rows(c,'SELECT id,client_id,body,phone,balance,filename,status,wa_id,error,created FROM statement_sends ORDER BY id'),clients=clients,orders=orders,installments=ins,payments=rows(c,'SELECT * FROM payments ORDER BY id DESC'),allocations=allocs,receipts=rows(c,'SELECT id,client_id,filename,mime,status,created FROM receipts ORDER BY id DESC'),messages=rows(c,'SELECT * FROM messages ORDER BY id'),reminders=rows(c,'SELECT * FROM reminders ORDER BY at'),payment_notices=rows(c,'SELECT * FROM payment_notices ORDER BY payment_id DESC'),settings=safe_cfg,today=today(),demo=DEMO,integrations={'shopify':shop_tok and not DEMO,'whatsapp':bool(os.getenv('WA_ACCESS_TOKEN') and os.getenv('WA_PHONE_NUMBER_ID') and os.getenv('WA_APP_SECRET')) and not DEMO,'shop':os.getenv('SHOPIFY_DOMAIN') or cfg.get('shopify_domain') or 'cindylu.myshopify.com'})
 @app.get('/api/clients/<int:cid>/statement.pdf')
 def statement_pdf(cid):
     from statements import snapshot,pdf
@@ -531,7 +532,7 @@ def webhook():
     return jsonify(ok=True)
 
 SHOP_QUERY='''query Orders($cursor:String){orders(first:50,after:$cursor,sortKey:UPDATED_AT){pageInfo{hasNextPage endCursor} nodes{id name createdAt updatedAt cancelledAt displayFinancialStatus currentTotalPriceSet{shopMoney{amount currencyCode}} totalOutstandingSet{shopMoney{amount currencyCode}} customer{id displayName email phone} shippingAddress{phone firstName lastName} lineItems(first:250){pageInfo{hasNextPage endCursor} nodes{title quantity variantTitle}}}}}'''
-def import_shop_order(c,o):
+def import_shop_order(c,o,allow_new=True):
     cur=o['currentTotalPriceSet']['shopMoney']['currencyCode']
     if cur!='CLP':raise ValueError('Se encontró una compra en otra moneda; esta versión trabaja en CLP.')
     total=amount(o['currentTotalPriceSet']['shopMoney']['amount']); outstanding=amount(o['totalOutstandingSet']['shopMoney']['amount'])
@@ -545,10 +546,44 @@ def import_shop_order(c,o):
     old=c.execute('SELECT * FROM orders WHERE shopify_id=?',(o['id'],)).fetchone()
     items=[{'title':i['title']+(' · '+i['variantTitle'] if i.get('variantTitle') else ''),'quantity':i['quantity']} for i in o['lineItems']['nodes']]
     snapshot=json.dumps({'total':total,'outstanding':outstanding,'cancelled':o.get('cancelledAt'),'items':items},sort_keys=True,ensure_ascii=False)
-    if old:
-        if old['remote']!=snapshot:c.execute("UPDATE orders SET review='La compra o sus pagos cambiaron en Shopify. Usa «Ajustar compra / cuotas» para conciliar el saldo.',updated=? WHERE id=?",(now(),old['id']))
-        return
     cust=o.get('customer') or {};shipping=o.get('shippingAddress') or {}; sid=cust.get('id')
+    try:remote_phone=phone(cust.get('phone') or shipping.get('phone'))
+    except ValueError:remote_phone=''
+    remote_email=str(cust.get('email') or '').strip().lower()
+    def same_client(client):
+        # A name alone is never sufficient to merge a financial record.
+        try:local_phone=phone(client['phone'])
+        except ValueError:local_phone=''
+        if sid and client['shopify_id'] and sid!=client['shopify_id']:return False
+        if local_phone and remote_phone and local_phone!=remote_phone:return False
+        return bool((sid and sid==client['shopify_id']) or (local_phone and local_phone==remote_phone)
+                    or (remote_email and remote_email==str(client['email'] or '').strip().lower()))
+    if not old:
+        normalized=str(o['name']).strip().lstrip('#').strip()
+        matches=rows(c,"SELECT * FROM orders WHERE trim(ltrim(trim(number),'#'))=?",(normalized,))
+        if matches:
+            if len(matches)!=1:return 'conflict'
+            candidate=matches[0]
+            client=one(c,'SELECT * FROM clients WHERE id=?',(candidate['client_id'],))
+            if candidate['shopify_id'] or candidate['source']!='excel' or candidate['total']!=total or o.get('cancelledAt') or not same_client(client):
+                return 'conflict'
+            # Link and enrich only: never replace the Excel ledger or allocations.
+            c.execute('UPDATE orders SET shopify_id=?,items=?,remote=?,updated=? WHERE id=?',
+                      (o['id'],json.dumps(items,ensure_ascii=False),snapshot,now(),candidate['id']))
+            audit(c,'shopify_excel_linked',{'order_id':candidate['id'],'shopify_id':o['id']})
+            return 'linked'
+    if old:
+        if old['source']=='excel':
+            if old['total']!=total or o.get('cancelledAt'):
+                c.execute("UPDATE orders SET review='El total o la anulación cambiaron en Shopify. Revisa la compra antes de modificar su saldo.',updated=? WHERE id=?",(now(),old['id']))
+                return 'conflict'
+            c.execute('UPDATE orders SET items=?,remote=?,updated=? WHERE id=?',
+                      (json.dumps(items,ensure_ascii=False),snapshot,now(),old['id']))
+        elif old['remote']!=snapshot:
+            c.execute("UPDATE orders SET review='La compra o sus pagos cambiaron en Shopify. Usa «Ajustar compra / cuotas» para conciliar el saldo.',updated=? WHERE id=?",(now(),old['id']))
+            return 'conflict'
+        return 'updated'
+    if not allow_new:return 'pending'
     cl=c.execute('SELECT id FROM clients WHERE shopify_id=?',(sid,)).fetchone() if sid else None
     if cl:cid=cl[0]
     else:
@@ -567,32 +602,45 @@ def import_shop_order(c,o):
         m=pdate.year*12+pdate.month; y,mo=divmod(m,12); mo+=1
         first_due=dt.date(y,mo,min(pdate.day,calendar.monthrange(y,mo)[1])).isoformat()
         make_plan(c,{'order_id':oid,'count':def_ins,'first':first_due,'frequency':'monthly'})
+    return 'created'
 SYNC_LOCK=threading.Lock()
 def sync_shop():
     with db() as c:cfg=settings(c)
-    token=os.getenv('SHOPIFY_ACCESS_TOKEN') or cfg.get('shopify_token','')
-    domain=(cfg.get('shopify_domain') or os.getenv('SHOPIFY_DOMAIN','cindylu.myshopify.com')).strip().lower()
-    if DEMO or not token:raise ValueError('Shopify todavía no está conectado. Ingresa el token Admin API en Configuración > Shopify.')
-    if not re.fullmatch(r'[a-z0-9-]+\.myshopify\.com',domain):raise ValueError('Dominio Shopify inválido (usa formato tutienda.myshopify.com).')
+    domain=shopify_auth.domain(cfg)
+    if DEMO:raise ValueError('Shopify no está disponible en demostración.')
     if not SYNC_LOCK.acquire(False):raise ValueError('Ya hay una sincronización en curso.')
-    count=0
+    summary={'count':0,'linked':0,'updated':0,'pending':0,'conflict':0}
     try:
         cursor=None
         while True:
-            result=httpjson('https://'+domain+'/admin/api/'+os.getenv('SHOPIFY_API_VERSION','2026-07')+'/graphql.json',{'query':SHOP_QUERY,'variables':{'cursor':cursor}},{'X-Shopify-Access-Token':token})
+            # Reacquire a cached token per page, renewing before expiry.
+            token=shopify_auth.access_token(cfg)
+            result=httpjson('https://'+domain+'/admin/api/'+os.getenv('SHOPIFY_API_VERSION','2026-10')+'/graphql.json',{'query':SHOP_QUERY,'variables':{'cursor':cursor}},{'X-Shopify-Access-Token':token})
             if result.get('errors'):raise ValueError('Shopify rechazó la consulta. Revisa permisos de pedidos y datos de clientes.')
             page=result['data']['orders']
             with db(True) as c:
                 for o in page['nodes']:
                     if o['lineItems']['pageInfo']['hasNextPage']:raise ValueError('Un pedido supera 250 artículos; requiere importación ampliada. No se importó parcialmente.')
-                    import_shop_order(c,o);count+=1
+                    outcome=import_shop_order(c,o,allow_new=False)
+                    summary[outcome]+=1;summary['count']+=1
             if not page['pageInfo']['hasNextPage']:break
             cursor=page['pageInfo']['endCursor']
-        with db(True) as c:setval(c,'sync_at',now());setval(c,'sync_error','');audit(c,'shopify_sync',{'orders':count})
-        return count
+        with db(True) as c:
+            setval(c,'sync_at',now());setval(c,'sync_error','');setval(c,'shopify_sync_summary',summary)
+            setval(c,'shopify_auto_sync',True);audit(c,'shopify_sync',summary)
+        return summary
     finally:SYNC_LOCK.release()
 @app.post('/api/shopify/sync')
-def sync():return jsonify(count=sync_shop())
+def sync():return jsonify(sync_shop())
+@app.post('/api/shopify/test')
+def test_shopify_connection():
+    if DEMO:raise ValueError('Shopify no está disponible en demostración.')
+    with db() as c:cfg=settings(c)
+    token=shopify_auth.access_token(cfg)
+    result=httpjson('https://'+shopify_auth.domain(cfg)+'/admin/api/'+os.getenv('SHOPIFY_API_VERSION','2026-10')+'/graphql.json',
+                    {'query':'{shop{name myshopifyDomain} orders(first:1){nodes{id}}}'},{'X-Shopify-Access-Token':token})
+    if result.get('errors'):raise ValueError('Shopify rechazó la prueba. Verifica el permiso read_orders y la instalación de la app.')
+    return jsonify(ok=True,shop=result['data']['shop']['name'])
 @app.post('/api/reminders')
 def reminder():
     d=request.get_json(); at=dt.datetime.fromisoformat(d['at'])
@@ -654,7 +702,8 @@ def worker():
     while True:
         try:
             process_payment_notices()
-            if not DEMO and os.getenv('SHOPIFY_ACCESS_TOKEN') and time.time()-last>300:
+            with db() as c:shop_cfg=settings(c)
+            if not DEMO and shop_cfg.get('shopify_auto_sync') and shopify_auth.configured(shop_cfg) and time.time()-last>300:
                 last=time.time()
                 try:sync_shop()
                 except Exception as e:
@@ -841,3 +890,4 @@ if __name__=='__main__':
     print('Cindy Lú disponible en http://localhost:'+str(port),flush=True)
     from waitress import serve
     serve(app,host=host,port=port,threads=8)
+
