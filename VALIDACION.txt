@@ -1,0 +1,49 @@
+VALIDACIÓN — 26/10/2026
+
+14 pruebas automatizadas aprobadas:
+- Cuotas enteras y vencimientos de fin de mes.
+- Abono parcial aplicado a más de una cuota de la misma compra.
+- Reintento de la misma operación sin duplicar el abono.
+- Dos abonos simultáneos que excederían el saldo: solo uno se acepta.
+- Comprobante duplicado, anulación y reconfirmación.
+- Registro de acceso, inicio de sesión y protección CSRF.
+- Importación Shopify simulada repetida sin duplicar pedidos.
+- Cambios posteriores de Shopify marcados para revisión.
+- Montos no válidos, compras sin plan y planes con pagos protegidos.
+- Webhook sin firma rechazado.
+- Webhook firmado repetido: un solo comprobante, deuda intacta.
+- Archivo no permitido rechazado.
+- CSV / XLSX, teléfono numérico y omisión de duplicados.
+- Protección de archivos privados y solicitudes de otro origen.
+
+Comprobación visual en navegador de escritorio:
+- Acceso al entorno de demostración.
+- Búsqueda Ja / Javi y selección de Javiera González.
+- Dos compras con fechas, productos y cuotas.
+- Confirmación de comprobante ficticio por $20.000:
+  saldo de la compra $80.000 -> $60.000;
+  saldo total $128.000 -> $108.000;
+  cuota pendiente $40.000 -> $20.000;
+  comprobante pasa a confirmado.
+- Sintaxis Python y JavaScript comprobada.
+
+Límites:
+No hay credenciales de Shopify ni Meta. No se probaron operaciones reales.
+No se enviaron mensajes reales ni se modificó Shopify.
+No se desplegó en alojamiento externo independiente.
+No se probó físicamente en Windows, Mac, iPad o teléfono.
+
+Actualización: 19 pruebas automáticas correctas. Incluyen avisos de pago
+idempotentes, fallo de envío sin alterar deuda, exclusión de compras
+pagadas/anuladas en estados de cuenta, abonos parciales, reversión y
+protección de descarga por sesión. PDF de ejemplo renderizado y revisado.
+Acceso con video y recordar usuario comprobado en navegador de prueba.
+Los conectores externos no se probaron con credenciales reales.
+
+Remitir estados de cuenta: 26 pruebas automáticas correctas. Validan PDF
+adjunto por media ID, plantilla con encabezado documento, no duplicar
+operaciones, detección de saldo cambiado, autorización, descarga privada,
+fallo ambiguo sin reintento, estados de entrega sin retroceder y modo demo
+sin llamadas de red. Ventana, buscador y simulación probados en navegador.
+Las llamadas reales a Meta están simuladas en pruebas. Pendiente verificar
+con credenciales, número y plantilla reales durante la puesta en marcha.

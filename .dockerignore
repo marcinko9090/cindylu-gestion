@@ -1,0 +1,17 @@
+data
+demo-data
+.venv
+.qa-deps
+.env
+tests
+__pycache__
+.git
+.github
+*.sqlite3
+*.sqlite3-wal
+*.sqlite3-shm
+*.db
+session.key
+*.zip
+*.tar
+*.tar.gz

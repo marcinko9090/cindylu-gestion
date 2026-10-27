@@ -1,0 +1,347 @@
+CINDY LÚ · CLIENTAS, COMPRAS Y CUOTAS
+Versión independiente para probar en Windows · 26 de octubre de 2026
+
+QUÉ RECIBES
+Una aplicación web con servidor propio y base de datos SQLite.
+Funciona desde el navegador, sin una cuenta de ChatGPT.
+El paquete contiene el programa, una demostración aislada y esta guía.
+No es un instalador .exe, una app de App Store ni un servicio ya contratado.
+Necesita Python 3.11 o superior. El inicio instala sus dependencias.
+
+1. PRIMERO: PROBAR SIN DATOS REALES EN WINDOWS
+1) Descarga el ZIP. Botón derecho > Extraer todo.
+2) Deja la carpeta en una ubicación propia, por ejemplo Documentos\CindyLu-Web.
+   No lo ejecutes desde dentro del ZIP ni desde una carpeta temporal.
+3) Si no tienes Python, instálalo desde https://www.python.org/downloads/windows/
+   Elige Python 3.11 o superior y marca Add Python to PATH.
+4) Abre Probar-Demo-Windows.bat con doble clic.
+   La primera vez necesita internet para instalar dependencias oficiales.
+5) Deja abierta la ventana negra: es el servidor del programa.
+6) Se abrirá el navegador en http://localhost:8766
+7) Pulsa «Explorar demostración». También existe el acceso de prueba:
+      Correo: demo@cindylu.local
+      Clave: CindyLu-Demo-2026
+   Este acceso solo existe en la demostración, nunca en la base real.
+8) Escribe «Ja» en el buscador y luego «Javi».
+9) Selecciona Javiera González. Verás dos compras y sus cuotas.
+10) Pulsa «Revisar abono» en el archivo ficticio del chat.
+11) Elige la compra #1048, escribe 20000 y marca que verificaste el pago.
+12) Confirma. El saldo total baja de $128.000 a $108.000.
+    La cuota de $40.000 queda con $20.000 pendientes.
+13) En «Historial de abonos», prueba «Anular» e indica un motivo.
+    El abono se conserva en el historial y el saldo se restablece.
+
+La demostración usa demo-data; los datos reales usan data.
+No conecta con Shopify ni envía WhatsApp, incluso si hay credenciales configuradas.
+Para reiniciar la demostración, cierra su ventana y elimina SOLO demo-data.
+Nunca elimines data: contiene tus registros reales.
+
+2. COMENZAR CON TUS DATOS
+1) Abre Iniciar-Windows.bat.
+2) El navegador abre http://localhost:8765
+3) Crea tu acceso con correo y contraseña de al menos 12 caracteres.
+   El correo es un identificador; no se envía un correo de verificación.
+4) La base comienza vacía. Crea una clienta o importa Excel.
+5) Conserva data y sus respaldos. No copies archivos mientras se escriben.
+6) Para detener el programa, usa Ctrl+C en su ventana negra.
+
+El nombre de usuario es independiente de ChatGPT.
+No hay recuperación automática por correo. Si olvidas la contraseña:
+- Detén el servidor.
+- Desde la carpeta, ejecuta .venv\Scripts\python.exe administrar.py
+- Ingresa el correo y la nueva contraseña de forma local.
+- Reinicia el servidor. La clave de sesión se renueva.
+
+3. BUSCADOR
+Busca por una parte del nombre, apellido o teléfono.
+No distingue mayúsculas ni tildes. Cada resultado muestra el saldo y teléfono.
+Se admiten flechas arriba/abajo y Enter para elegir la sugerencia.
+La ficha muestra todas las compras de la clienta, la fecha y los artículos.
+Puedes editar su teléfono, correo, nombre y notas sin cambiar el ID de Shopify.
+
+4. EXCEL / CSV
+Clientas > Importar Excel.
+Primera fila con encabezados: nombre, telefono.
+Opcionales: correo, deuda, fecha.
+- Solo primera hoja .xlsx o CSV UTF-8; no .xls antiguo.
+- Hasta 1000 filas y 5 MB por archivo.
+- Teléfono con código de país. Se reconoce 9xxxxxxxx como teléfono chileno.
+- Deuda: entero CLP, por ejemplo 150000, sin signos ni separadores.
+- Fecha: AAAA-MM-DD o una celda de fecha de Excel.
+- Vista previa antes de confirmar; solo se importan filas válidas.
+- Los teléfonos existentes se omiten; no se sobrescriben sus fichas.
+- La deuda se incorpora como «Saldo inicial importado», no como pedido Shopify.
+  Si no hay fecha, se usa la fecha del registro. No inventa una compra original.
+- Ese saldo requiere definir sus cuotas, igual que una compra manual.
+- NO importes en deuda un saldo ya incluido en compras de Shopify: lo duplicaría.
+  Usa deuda=0 si solo estás importando los contactos.
+
+5. COMPRAS Y CUOTAS
+Las ventas nuevas se originan en Shopify una vez conectado.
+También puedes registrar una compra manual para operaciones antiguas o externas.
+Un registro manual NO se envía a Shopify ni descuenta stock.
+
+Por compra se muestra:
+- Número, origen, fecha original, artículos y cantidades.
+- Total, pagos previos importados y saldo.
+- Cantidad de cuotas, vencimiento, monto y pendiente de cada cuota.
+- Estado: pagada, pendiente, abono parcial o vencida.
+
+Definir cuotas:
+1) Pulsa «Definir cuotas».
+2) Indica cantidad (1 a 60), primer vencimiento y frecuencia.
+3) El saldo se divide sin intereses, en pesos enteros.
+4) La diferencia de redondeo se reparte en las primeras cuotas.
+5) Los vencimientos mensuales mantienen el día original; si no existe,
+   usan el último día del mes y recuperan el día original al mes siguiente.
+6) El plan puede reemplazarse antes de registrar abonos. Después queda protegido.
+
+Abonos:
+- Cada abono corresponde a UNA compra.
+- Puede cubrir una cuota parcialmente o varias cuotas de esa compra.
+- Se aplica primero a las pendientes más antiguas.
+- No acepta montos mayores al saldo ni un comprobante ya confirmado.
+- Un comprobante no se divide entre compras en esta versión. Para un pago que
+  cubre distintas compras, verifica el total y registra los abonos separados
+  con su referencia en notas; no vuelvas a confirmar el mismo comprobante.
+- Los abonos no registran una nueva venta ni descuentan nuevamente stock.
+
+Totales al final:
+- Cuotas vencidas pendientes.
+- Cuotas que vencen en el mes y siguen pendientes.
+- Total abonado, incluyendo pagos previos importados.
+- Saldo final de compras activas, incluyendo compras sin cuotas definidas.
+Los subtotales del mes y vencido pueden superponerse; no se suman entre sí.
+
+6. COMPROBANTES Y WHATSAPP
+Sin conexión, puedes cargar un JPG, PNG, WEBP o PDF de hasta 8 MB.
+1) Abre la ficha correcta.
+2) Pulsa + en la conversación y carga el archivo.
+3) Queda pendiente; la deuda no cambia.
+4) Abre «Revisar abono» y revisa la imagen y el ingreso bancario real.
+5) Escribe el monto, compra, fecha y medio de pago.
+6) Confirma para descontar. Puedes rechazar sin modificar el saldo.
+
+Esta versión no tiene OCR ni acceso a tu banco: el monto se escribe manualmente.
+Un comprobante o la palabra «transferencia» no acredita por sí solo el pago.
+Los pagos en efectivo se registran con «Registrar abono» y medio Efectivo.
+
+7. CONEXIÓN REAL DE SHOPIFY — PENDIENTE DE AUTORIZAR
+La tienda viene predefinida como cindylu.myshopify.com.
+No se incluyeron ni se obtuvieron credenciales de tu cuenta.
+
+Necesitas una aplicación/autorización Admin API válida en Shopify con lectura
+sobre pedidos y los datos de clientas necesarios para esta tienda.
+Los permisos y el acceso a datos protegidos dependen de la configuración Shopify.
+Por defecto, la API normalmente permite solo los últimos 60 días; pedidos más
+antiguos requieren acceso adicional read_all_orders.
+
+1) Un administrador habilita la aplicación y sus permisos de lectura.
+2) Copia .env.example como .env en la carpeta del programa.
+3) Completa SHOPIFY_ACCESS_TOKEN con el token de acceso del servidor.
+   No es la contraseña de tu tienda ni el API secret.
+   No envíes el token por chat ni lo guardes en una captura.
+4) Reinicia el programa.
+5) Configuración > Sincronizar ahora.
+6) Comprueba una compra real, su fecha, artículos, saldo y clienta.
+7) Define sus cuotas en esta aplicación.
+
+Sincroniza cada 5 minutos mientras el proceso del servidor sigue activo.
+La importación es de lectura: no cambia stock, pedidos ni pagos en Shopify.
+El mismo ID de pedido no se importa dos veces.
+Los clientes se enlazan por ID Shopify o por un único teléfono exacto de una
+ficha local sin vincular. Nunca se unen solo por tener el mismo nombre.
+Una clienta sin teléfono debe editarse para poder vincular sus mensajes.
+Si dos fichas tienen el mismo teléfono, resolver antes de usar WhatsApp.
+
+IMPORTANTE SOBRE LOS PAGOS DE SHOPIFY
+Al traer una compra por primera vez, se toma su total y lo ya pagado allí.
+Luego los abonos de cuotas se registran en Cindy Lú. No se envían a Shopify.
+Si Shopify cambia después el importe, artículos, pago o cancelación del pedido,
+se marca «Revisión» y se bloquean nuevos abonos de esa compra: no se mezcla ni
+se sobrescribe su contabilidad. Esta primera versión requiere conciliación
+asistida para resolver esos cambios; no tiene botón de ajuste automático.
+No uses dos sistemas para registrar el mismo abono sin conciliarlos.
+
+Los pedidos en moneda distinta de CLP se rechazan. Pedidos con más de 250
+líneas se detienen para no omitir artículos silenciosamente.
+No hay módulo de edición de productos ni de stock en esta entrega.
+
+Referencias oficiales consultadas:
+https://shopify.dev/docs/api/admin-graphql/latest/objects/order
+https://shopify.dev/docs/api/admin-graphql/latest
+
+8. CONEXIÓN REAL DE WHATSAPP — PENDIENTE DE AUTORIZAR
+Requiere WhatsApp Business Platform (Cloud API) de Meta.
+Tener la aplicación WhatsApp Business del celular no basta por sí solo.
+Conservar el mismo número también en la app depende de la modalidad oficial
+habilitada para la cuenta; no se debe migrar/eliminar sin comprobarlo.
+
+Configuración del servidor en .env:
+WA_ACCESS_TOKEN=token autorizado de Meta
+WA_PHONE_NUMBER_ID=identificador del número (no el teléfono con +56)
+WA_APP_SECRET=secreto de la aplicación Meta
+WA_VERIFY_TOKEN=un valor secreto largo que elijas para verificar el webhook
+WA_API_VERSION=v23.0
+
+El webhook se configura en Meta con la URL HTTPS pública del servidor:
+https://TU-DOMINIO/webhooks/whatsapp
+Usa el mismo WA_VERIFY_TOKEN y suscribe los eventos de messages.
+El programa valida la firma HMAC de Meta y el identificador de tu número.
+Los mensajes entrantes se relacionan por teléfono exacto.
+Un número nuevo crea una ficha sin deuda; una imagen o documento crea un
+comprobante pendiente. Debes revisar si realmente corresponde a un pago.
+El archivo se descarga al abrirlo. Guarda respaldo de los comprobantes revisados.
+No importa automáticamente tus conversaciones históricas anteriores a la conexión.
+
+Para enviar:
+1) Completa las credenciales y prueba un mensaje entrante autorizado.
+2) Confirma teléfono y autorización de la clienta en su ficha.
+3) Configuración > Habilitar envíos reales.
+4) Dentro de la ventana de atención de 24 horas se usa texto libre.
+5) Fuera de ella o para recordatorios programados, se requiere una plantilla
+   aprobada de Meta con dos variables de texto: nombre de la clienta y mensaje.
+   El contenido debe ajustarse a la plantilla aprobada.
+6) Puedes activar respuesta automática para acusar recepción del comprobante.
+7) Si un envío queda en «Revisar envío», comprueba WhatsApp antes de repetirlo.
+   No se reintenta automáticamente un envío de resultado incierto.
+
+No se envió ningún mensaje real durante el desarrollo.
+La integración está programada, no conectada ni validada con tu cuenta.
+
+Referencias oficiales consultadas:
+https://whatsappbusiness.com/developers/developer-hub/
+https://whatsapp.github.io/WhatsApp-Nodejs-SDK/api-reference/webhooks/start/
+
+9. COBROS PROGRAMADOS
+Desde la ficha > Programar cobro.
+Selecciona fecha y hora local del dispositivo y escribe el mensaje.
+Queda guardado en el servidor; puede cancelarse desde Cobros programados.
+- Requiere servidor encendido, WhatsApp configurado y envíos habilitados.
+- Requiere consentimiento y plantilla aprobada.
+- Se pausa si hay comprobantes pendientes de revisión.
+- Se cancela al no haber saldo activo.
+- No hace reenvíos inciertos automáticos.
+- Son recordatorios individuales; no hay repetición mensual automática en esta
+  versión. Puedes programar uno por vencimiento.
+
+10. TELÉFONO, WINDOWS Y MAC SINCRONIZADOS
+La arquitectura utiliza UN servidor y UNA base de datos.
+No copies la aplicación a cada dispositivo creando bases separadas.
+Los navegadores consultan el mismo servidor y actualizan cada 10 segundos,
+excepto mientras estás escribiendo o confirmando un formulario.
+
+Para probar desde Windows, localhost solo abre en ese computador.
+Para acceso permanente desde teléfono/Mac fuera de casa, falta desplegarla
+con un proveedor que admita Python o Docker, almacenamiento persistente y HTTPS.
+Este ZIP no contrata ni publica un servidor externo por sí solo.
+No confundas la antigua URL chatgpt.site con esta versión independiente.
+
+Se incluye Dockerfile para esa instalación:
+- Montar un volumen persistente en /data; nunca almacenamiento temporal.
+- Configurar credenciales como secretos del proveedor.
+- Usar un solo proceso/instancia para este volumen SQLite y su planificador.
+- Publicar por HTTPS mediante un proxy de confianza.
+- Activar CINDY_HTTPS=1.
+- Si el proxy termina HTTPS, activar CINDY_TRUST_PROXY=1 SOLO cuando el acceso
+  al contenedor provenga de ese único proxy y reescriba X-Forwarded-Proto/Host.
+- Crear el primer usuario desde una consola del servidor con administrar.py
+  (inclúyelo en la imagen, como hace este paquete) o mediante una conexión
+  local segura al servidor. El alta inicial por web se limita a loopback.
+- No publicar la demostración ni usar su acceso para datos reales.
+- Probar acceso, recepción del webhook, un pedido y un abono antes de operar.
+
+Para migrar de Windows al servidor:
+1) Descarga un respaldo desde Configuración.
+2) Detén el programa.
+3) Conserva una copia intacta de data.
+4) Restaura cindy.sqlite3 y media del respaldo en el directorio del servidor.
+5) Conserva o regenera session.key (regenerarla cierra las sesiones).
+6) Configura allí .env/secretos; no van dentro del respaldo.
+7) Arranca una sola instancia y compara totales.
+8) Usa siempre el nuevo enlace desde todos los equipos.
+
+11. USAR EN MAC MÁS ADELANTE
+El mismo código funciona en Python 3.11 o superior.
+Iniciar-Mac.command prepara el entorno y abre el navegador.
+Si macOS no permite ejecutar el archivo, abre Terminal en la carpeta y usa:
+  bash Iniciar-Mac.command
+No es una aplicación nativa firmada por Apple. Con alojamiento web, no necesitas
+instalar Python en Mac ni teléfono; solo abrir el enlace del servidor.
+
+12. RESPALDOS
+Configuración > Descargar respaldo completo.
+Incluye SQLite (con el hash de tu acceso) y comprobantes ya descargados.
+No incluye tokens Shopify/Meta, session.key ni archivos remotos aún no abiertos.
+Es información privada de la tienda. Mantén copias fuera del computador.
+Para restaurar, detén el proceso y sustituye base y carpeta media; respalda
+antes la versión actual. No hay restauración desde la interfaz en esta versión.
+
+13. VALIDACIÓN Y LÍMITES
+Se probaron reglas financieras, cuotas con redondeo, fechas de fin de mes,
+abonos parciales, doble confirmación, concurrencia, anulación, autenticación,
+CSRF, importación de Shopify simulada, y rechazo de archivos/firma inválidos.
+La interfaz se probó en navegador con datos ficticios: búsqueda Ja/Javi y
+confirmación de $20.000 con actualización de compra y saldo general.
+No se probaron las cuentas reales de Shopify o Meta, un Windows físico, Mac,
+iPad ni teléfono físico. El diseño incluye adaptación móvil.
+La interfaz y gestión local son funcionales; las integraciones requieren la
+configuración del servidor y las autorizaciones indicadas.
+
+NOVEDADES: PRESENTACIÓN, AVISOS Y ESTADO DE CUENTA
+1. Al abrir la página verás tu video junto al acceso. Empieza sin sonido;
+   puedes activar sonido o pausar. Recordar usuario guarda solo el correo.
+2. Busca una clienta y abre su ficha. Estado de cuenta rápido muestra solo
+   compras activas con deuda: fecha, artículos, total, pagado y pendiente.
+3. Pulsa Descargar PDF. Se genera en ese momento con cuotas (pagadas,
+   parciales y pendientes) y abonos confirmados de esas compras.
+   Las compras ya pagadas y anuladas no se incluyen. Los pagos previos
+   importados se indican por separado; no se inventa su fecha ni cuotas.
+   Los comprobantes sin confirmar no rebajan saldo. Un cambio de Shopify
+   pendiente de revisión queda advertido en el documento.
+4. Al confirmar un abono puedes marcar Enviar confirmación personalizada
+   por WhatsApp. En Configuración puedes editar el texto y activarlo por
+   defecto. Sin integración habilitada queda pendiente; puede cancelarse.
+   En demostración solo se simula. Un error de envío no revierte el pago.
+5. Revisar Excel Cindy Lú acepta los dos formatos suministrados. Es una
+   revisión sin importar deudas. Debemos escoger el corte de saldo vigente
+   y las reglas de cuotas antes de completar la migración histórica.
+   No sumes las hojas mensuales ni dupliques columnas auxiliares de abonos.
+6. Para actualizar una instalación: respalda primero; conserva la carpeta
+   data y tu .env. Sustituye el código y reinstala requirements.txt en su
+   entorno virtual (incluye reportlab para generar los PDF).
+
+REMITIR ESTADO DE CUENTA POR WHATSAPP
+1. Pulsa Remitir estado de cuenta en la cabecera de la página. También hay
+   accesos Enviar por WhatsApp en el resumen de saldo y Enviar estado de
+   cuenta en el chat de cada clienta.
+2. Escribe parte del nombre, apellido o teléfono. Selecciona la clienta
+   entre las coincidencias. Verás su nombre completo, número, saldo y
+   mensaje. Puedes abrir el PDF antes de enviarlo.
+3. Pulsa Enviar ahora por WhatsApp. Se genera una copia del estado de
+   cuenta de ese momento y se adjunta al chat de la clienta seleccionada.
+   No incluye compras totalmente pagadas ni anuladas.
+4. La ficha conserva la copia del documento y el estado del envío:
+   aceptado por WhatsApp, entregado o leído, según los avisos de Meta.
+   Aceptado no significa entregado. Si falla o se interrumpe, queda por
+   revisar. No se reintenta automáticamente para evitar duplicados.
+5. Requiere integración oficial configurada, envíos habilitados y teléfono
+   y autorización de la clienta. Si el saldo cambia después de revisar la
+   vista previa, vuelve a seleccionar la clienta antes de enviar.
+6. En demostración: el botón dice Simular envío de PDF. Genera la copia
+   sin contactar a Meta ni mandar mensajes reales.
+7. Si la clienta escribió en las últimas 24 horas, el PDF lleva el texto
+   mostrado como leyenda. Fuera de esa ventana, configura una plantilla
+   aprobada con encabezado DOCUMENTO PDF en Mensajes y respuestas:
+   Nombre sugerido: estado_cuenta_cindy_lu
+   Idioma: el que hayas aprobado, por ejemplo es_CL.
+   Cuerpo exacto propuesto (variables posicionales):
+   Hola, {{1}}, te enviamos tu estado de cuenta de Cindy Lú. Tu saldo
+   pendiente es {{2}}. El PDF incluye tus compras con deuda y sus abonos.
+   La variable 1 es el nombre completo y la 2 el saldo formateado.
+   Usa un PDF ficticio de ejemplo para solicitar la aprobación en Meta.
+   La plantilla general de recordatorios no reemplaza esta plantilla con
+   encabezado PDF. Meta debe aprobar la plantilla para poder usarla.
+8. Los PDF se cargan como documentos en Meta para adjuntarlos; no se crea
+   un enlace público a la base de datos ni al documento del servidor.
+   Los cambios de pedidos pendientes de conciliación bloquean este envío.
