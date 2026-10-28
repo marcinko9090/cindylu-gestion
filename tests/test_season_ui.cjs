@@ -19,9 +19,10 @@ assert.equal(nodes.get('.welcome-glitter').innerHTML,original);assert.equal(node
 context.window.CindySeasons.apply({...config,year:2027,variant:3,seed:64031});
 assert.notEqual(nodes.get('.welcome-glitter').innerHTML,original);
 nodes.get('#welcome-video').currentTime=3;handlers.timeupdate();
-assert.equal(nodes.get('.auth-film').dataset.phase,'brand');
+assert.equal(nodes.get('.auth-film').dataset.phase,'intro');
 nodes.get('#welcome-video').currentTime=0;handlers.timeupdate();
-assert.equal(nodes.get('.auth-film').dataset.phase,'brand'); // Video looping cannot freeze/reset the finale.
+assert.equal(nodes.get('.auth-film').dataset.phase,'intro'); // Every loop retains the complete original video.
+handlers.error();assert.equal(nodes.get('.auth-film').dataset.phase,'brand');handlers.playing();assert.equal(nodes.get('.auth-film').dataset.phase,'intro');assert.equal(nodes.get('#welcome-video').loop,true);
 assert.equal(context.window.CindySeasons.settingsMarkup,undefined);
 const app=fs.readFileSync(require('node:path').join(__dirname,'../static/app.js'),'utf8');
 assert(!app.includes('settingsMarkup'));
@@ -79,7 +80,7 @@ function runtime(season,{brokenLogo=false,waitingLogo=false,reduced=false}={}){
  }
  const fallback=runtime(config);await fallback.api.welcome();
  [...fallback.timers.values()].find(t=>t.ms===3800).fn();assert(fallback.map.get('#panel-welcome').classList.contains('hidden'));
- for(const opts of [{brokenLogo:true},{waitingLogo:true}]){const r=runtime(config,opts);await r.api.welcome();assert(r.map.get('#panel-welcome').classList.contains('hidden'));}
+ for(const opts of [{brokenLogo:true},{waitingLogo:true}]){const r=runtime(config,opts);await r.api.welcome();assert(!r.map.get('#panel-welcome').classList.contains('hidden'));assert(r.map.get('#panel-welcome').classList.contains('logo-fallback'));assert.equal(r.map.get('.panel-welcome-glitter').innerHTML.match(/<i /g).length,32);}
  const base=runtime({...config,key:'base',active:false});await base.api.welcome();
  assert(!base.map.get('.panel-welcome-motifs').innerHTML.includes('pumpkin'));
  assert.equal(base.map.get('.panel-welcome-greeting').textContent,'');
@@ -103,5 +104,6 @@ function runtime(season,{brokenLogo=false,waitingLogo=false,reduced=false}={}){
  assert(css.includes('#panel-welcome,#season-banner'));
  console.log('Returning-session welcome: all festivities, one-time entry, nested events, fallback, logo failures, reduced motion and fade endpoints passed.');
 })().catch(error=>{console.error(error);process.exitCode=1;});
+
 
 

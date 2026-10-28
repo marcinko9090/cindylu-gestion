@@ -70,15 +70,15 @@
   const logo=$('#panel-welcome-logo');
   // Decode before revealing so a slow image never pops into a fading animation.
   if(logo?.decode){try{await Promise.race([logo.decode(),new Promise(resolve=>setTimeout(resolve,600))]);}catch{}}
-  // A failed logo request must not leave an empty flash over the panel.
-  if(logo&&(!logo.complete||!logo.naturalWidth))return;
+  // Always show entry glitter; a slow or failed logo uses the store-name fallback.
+  overlay.classList.toggle('logo-fallback',!!(logo&&(!logo.complete||!logo.naturalWidth)));
   const config=current,rng=random(config.seed+97),motifs=palettes[config.key]||palettes.base;
   const marks=$('.panel-welcome-motifs'),particles=$('.panel-welcome-glitter');
   if(marks)marks.innerHTML=Array.from({length:config.active?6:3},(_,i)=>'<span class="panel-welcome-motif" style="--x:'+([19,76,13,81,28,67][i])+'%;--y:'+([25,26,61,63,79,80][i])+'%;--size:'+(32+rng()*22)+'px;--tilt:'+(-12+rng()*24)+'deg;--drift:'+(-8+rng()*16)+'px">'+svg(motifs[i%motifs.length])+'</span>').join('');
-  if(particles)particles.innerHTML=Array.from({length:32},()=>'<i style="--x:'+(12+rng()*76)+'%;--y:'+(14+rng()*72)+'%;--size:'+(1+rng()*3)+'px;--drift:'+(-22+rng()*44)+'px;--delay:'+(rng()*.35)+'s"></i>').join('');
+  if(particles)particles.innerHTML=Array.from({length:32},()=>'<i style="--x:'+(12+rng()*76)+'%;--y:'+(14+rng()*72)+'%;--size:'+(1+rng()*3)+'px;--drift:'+(-22+rng()*44)+'px;--delay:'+(-rng()*7)+'s"></i>').join('');
   const greeting=$('.panel-welcome-greeting');if(greeting)greeting.textContent=config.active?config.greeting:'';
   let fallback;
-  const finish=()=>{overlay.classList.add('hidden');overlay.classList.remove('is-playing');if(marks)marks.innerHTML='';if(particles)particles.innerHTML='';overlay.removeEventListener('animationend',ended);clearTimeout(fallback);};
+  const finish=()=>{overlay.classList.add('hidden');overlay.classList.remove('is-playing');overlay.classList.remove('logo-fallback');if(marks)marks.innerHTML='';if(particles)particles.innerHTML='';overlay.removeEventListener('animationend',ended);clearTimeout(fallback);};
   const ended=event=>{if(event.target===overlay&&event.animationName==='cindy-panel-reveal')finish();};
   overlay.addEventListener('animationend',ended);
   overlay.classList.remove('hidden');overlay.classList.add('is-playing');
@@ -89,13 +89,17 @@
  try{apply(JSON.parse(document.body.dataset.seasonConfig||'null'));}catch{}
  const video=$('#welcome-video'),film=$('.auth-film');
  if(video&&film){
-  let finale=false;
-  const reveal=()=>{if(finale)return;finale=true;film.dataset.phase='brand';};
-  video.addEventListener('timeupdate',()=>{if(video.currentTime>=2.9)reveal();});
-  video.addEventListener('error',reveal);video.addEventListener('ended',reveal);
+  // Keep the original full presentation playing on every loop. Never replace it at 2.9s.
+  const reveal=()=>{film.dataset.phase='brand';};
+  const playing=()=>{if(!reduced())film.dataset.phase='intro';};
+  video.loop=true;
+  video.addEventListener('playing',playing);
+  video.addEventListener('timeupdate',()=>{if(video.currentTime>.1&&!video.paused)playing();});
+  video.addEventListener('error',reveal);
   if(reduced()){video.autoplay=false;video.pause();reveal();}
-  // If autoplay is blocked or a video stalls, the continuous web finale remains usable.
-  setTimeout(reveal,4200);
+  else video.play().catch(reveal);
+  // The animated logo is a fallback only while playback is unavailable.
+  setTimeout(()=>{if(reduced()||video.paused||video.currentTime<.1)reveal();},4200);
   document.addEventListener('visibilitychange',()=>{if(!document.hidden&&!$('#auth')?.classList.contains('hidden')&&!reduced())video.play().catch(reveal);});
  }
  // Refresh calendar decoration for a page left open overnight, without touching account data.
@@ -108,5 +112,6 @@
   try{const response=await fetch('/api/session');if(response.ok){const data=await response.json();apply(data.season);}}catch{}
  },60000);
 })();
+
 
 
