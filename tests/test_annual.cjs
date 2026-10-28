@@ -13,6 +13,7 @@ assert.deepEqual(group(input),[
 assert.deepEqual(group([]),[]);
 assert.equal(purchaseYear('2026-01-01T01:00:00Z'),'2025');
 assert.equal(purchaseYear('2026-01-01'),'2026');
+assert.equal(purchaseYear('2026-01'),'2026'); // A debt cut has month precision, not an invented purchase day.
 const after=input.map(o=>({...o}));after[0].balance-=10000;
 assert.equal(group(after)[1].paid,70000);assert.equal(group(after)[0].paid,10000);
 for(const row of group(after))assert.equal(row.total-row.paid,row.balance);
@@ -42,6 +43,8 @@ const model={clients:[{id:1,name:'Ana <Norte>'}],orders:ledgerOrders,payments:le
 const ui={S:model,selected:1,clientSupportOpen:false,CindyAnnual:{group},money:n=>'$'+new Intl.NumberFormat('es-CL').format(n),day:s=>s,
  esc:s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])),initials:()=> 'AN',chat:()=>'<div data-test-chat></div>',clientList:()=>'<div data-test-directory></div>'};
 vm.createContext(ui);
+vm.runInContext(fs.readFileSync(require('node:path').join(__dirname,'../static/history.js'),'utf8'),ui);
+vm.runInContext(source.slice(source.indexOf('function clientWorkplace('),source.indexOf('function clientDirectory(')),ui);
 vm.runInContext(source.slice(source.indexOf('function orders('),source.indexOf('function receiptCard(')),ui);
 vm.runInContext(source.slice(source.indexOf('function ledgerProducts('),source.indexOf('function clientWorkplace(')),ui);
 const upper=ui.stats(1),head=upper.slice(upper.indexOf('<thead>'),upper.indexOf('</thead>'));
@@ -53,7 +56,7 @@ assert.deepEqual([...main.matchAll(/data-ledger-order="(\d+)"/g)].map(m=>Number(
 assert(main.includes('3 ×</span> Perfume Ámbar &amp; Rosa'));
 assert(main.includes('2 ×</span> Perfume &lt;Vainilla&gt;'));
 assert(main.includes('Detalle de productos no informado.'));
-assert(main.includes('Total de todas las compras</span><strong>$59.000'));
+assert(main.includes('Total de compras registradas en esta cuenta</span><strong>$59.000'));
 assert.equal((main.match(/class="total-row final ledger-current-balance"/g)||[]).length,1);
 assert(main.includes('Saldo vigente</span><strong>$24.000'));
 assert.deepEqual([...main.matchAll(/data-ledger-payment="(\d+)"/g)].map(m=>Number(m[1])),[11,12]);
@@ -73,3 +76,18 @@ model.clients.push({id:3,name:'Sin compras'});ui.selected=3;
 page=ui.detail();assert(page.includes('No hay compras registradas.'));assert(page.includes('Todavía no hay pagos registrados.'));assert(page.includes('Saldo vigente</span><strong>$0'));
 ui.selected=999;assert(ui.detail().includes('data-test-directory'));assert.equal(ui.selected,null);
 console.log('Simple client ledger: exact products/quantities, fully paid purchases, single current balance, dated/undated payments, annulled history, year-only summary and payment actions passed.');
+model.purchase_history=[{client_id:1,period:'2024-02',date:'2024-02-10',number:'#200',amount:2500,kind:'purchase',detail:'PEDIDO',items:[{quantity:2,title:'Labial <Rosa> 5 ml'}]},
+ {client_id:1,period:'2024-02',date:'2024-02-11',number:'',amount:-500,kind:'discount',detail:'DESCUENTO',items:[]}];
+model.cxc_history=[{client_id:1,key:'old',date:'2026-01-03',amount:1000,current:0,kind:'last_payment_reference'},
+ {client_id:1,key:'current',date:'2026-10-10',amount:500,current:1,kind:'movement'}];
+model.orders.push({...makeOrder(6,1,2000,0,1500,'2026-10'),source:'cxc'});
+model.payments.push({id:17,order_id:6,amount:500,date:'2026-10-10',reversed:0});
+const historyHtml=ui.CindyHistory.render(model,1,ui.esc,ui.money,ui.day);
+assert(historyHtml.includes('$2.000'));assert(historyHtml.includes('2 × Labial &lt;Rosa&gt; 5 ml'));assert(historyHtml.includes('2024-02'));assert(historyHtml.includes('no genera deuda'));
+const cutHtml=ui.clientLedger(1);
+assert(cutHtml.includes('Saldo del corte CXC'));assert(cutHtml.includes('Sin pedido indicado en CXC'));
+assert(!cutHtml.includes('data-ledger-order="6"')); // A cut is not presented as a product purchase.
+assert.equal((cutHtml.match(/data-ledger-payment="17"/g)||[]).length,1);
+assert.equal(ui.CindyHistory.payments(model,1).length,1);
+assert(cutHtml.includes('ya considerado en el corte, no se descuenta otra vez'));
+console.log('Settled monthly history, exact product details, CXC cut separation, payment references and month-only year grouping passed.');
