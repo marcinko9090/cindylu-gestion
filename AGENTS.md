@@ -56,3 +56,5 @@
 - Keep the purchases/products section visible in every client file. Preserve exact product details from restructured purchases as read-only reference cards, without adding their totals to the balance. When a pending Shopify record has no detailed items, reuse products only from the same stored order (exact Shopify ID or order number plus equal total), including restructured records. Never substitute another client's products, claim historical cards are pending in Shopify, or expose cancelled purchases as current. If no products are linked, explain this and offer the existing Shopify sync/link workflow.
 
 - Do not display the phrase “Este detalle no agrega deuda al saldo actual” in client files. Preserve the existing read-only treatment and balance calculations.
+
+- Do not show the technical Shopify amount-issues warning banner in Configuración. Keep synchronization validation and the separate order-review workflow intact; hiding this notice must never mark a purchase paid or alter balances.
