@@ -228,7 +228,7 @@ console.log('Unified Clientas navigation, dated purchase cards, no repeated name
 // Render the complete application (not only extracted functions) to catch broken navigation references.
 const nodes=new Map();
 for(const id of [...shell.matchAll(/\bid="([^"]+)"/g)].map(m=>m[1]))nodes.set('#'+id,{value:'',classList:{toggle(){},add(){},remove(){},contains(){return true;}},setAttribute(){},focus(){},querySelector(){return null;}});
-const complete={console,Intl,Date,Map,Set,JSON,Number,String,Array,Math,RegExp,Promise,crypto:{},setTimeout(){},clearTimeout(){},setInterval(){},localStorage:{getItem(){return null;}},matchMedia:()=>({matches:true}),window:{},
+const complete={console,Intl,Date,Map,Set,JSON,Number,String,Array,Math,RegExp,Promise,crypto:{},setTimeout(){},clearTimeout(){},setInterval(){},localStorage:{getItem(){return null;}},matchMedia:()=>({matches:true}),window:{addEventListener(){}},
  document:{querySelector:s=>nodes.get(s)||null,querySelectorAll:()=>[],addEventListener(){}},
  CindyField:{view:()=>'',bind(){}},CindyClientPayment:{view:()=>'<aside id="client-payment-panel"></aside>',bind(){},hasDraft:()=>false},
  CindyAnnual:{group},CindyCalm:{stop(){}},model};
@@ -245,3 +245,25 @@ assert(nodes.get('#content').innerHTML.includes('COMPRA #6437'));
 assert(nodes.get('#content').innerHTML.includes('id="client-payment-panel"'));
 console.log('Full app renders the unified directory, legacy navigation and client account without missing functions.');
 
+
+(async()=>{
+ let refreshes=0,authScreens=0;
+ complete.api=async()=>({authenticated:true,setup:false,csrf:'test'});
+ complete.CindySeasons={apply(){}};
+ complete.CindyCalm={start(){},stop(){}};
+ complete.showAuth=()=>{authScreens++};
+ complete.refresh=async()=>{refreshes++};
+ nodes.set('#welcome-video',{pause(){}});
+ await vm.runInContext('start()',complete);
+ assert.equal(authScreens,1,'Saved session must still show login');
+ assert.equal(refreshes,0,'Do not fetch business data before explicit entry');
+ await vm.runInContext('start()',complete);
+ assert.equal(refreshes,1,'Successful explicit login can enter the workspace');
+ complete.api=async()=>({authenticated:false,setup:false});
+ await vm.runInContext('start()',complete);
+ assert.equal(authScreens,2,'Expired session returns to login');
+ assert.equal(refreshes,1);
+ assert(shell.includes('autocomplete="username"'));
+ assert(shell.includes('autocomplete="current-password"'));
+ console.log('Entry gate: saved sessions show login before loading data; successful login enters; expired sessions stay at login.');
+})().catch(error=>{console.error(error);process.exitCode=1;});
