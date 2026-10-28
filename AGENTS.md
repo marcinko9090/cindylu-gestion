@@ -49,3 +49,6 @@
 
 
 - Fill missing tags in the existing fichas from their imported Excel workplace, without creating or merging client records or altering balances. Canonicalize CLC / CLC ESTORIL / Clínica Las Condes to the single displayed/filterable label “Clínica Las Condes”, keeping the original workplace text intact. Preserve usable Shopify tags; apply the same fallback and normalization in pending-order filters for safely linked clients. These are local classification tags, not automatic writes to Shopify.
+
+
+- Account-statement PDFs must show linked Shopify pending-purchase products (number, date, exact titles/quantities and total), dated Excel/local abonos and the authoritative current local balance. Never add Shopify pending totals to CXC, infer an order allocation for Excel payments, deduct historical abonos twice, or omit prior imported abonos merely because they are outside the current payment table. Keep last-payment references distinct, undated amounts undated, and include payments that closed an active purchase. Do not render CXC-cut placeholders or unrelated archived imports as products. Keep PDF previews/digests consistent with the new contents.
