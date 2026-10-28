@@ -6,6 +6,7 @@ from decimal import Decimal, InvalidOperation
 import shopify_auth
 from shopify_review import review_record, merge_review_records, shopify_items
 from flask import Flask, request, session, jsonify, send_file, render_template
+from seasons import season_for
 from werkzeug.security import generate_password_hash, check_password_hash
 
 ROOT=Path(__file__).resolve().parent
@@ -160,7 +161,7 @@ def conflict(e):return jsonify(error='El registro ya existe o cambió. Actualiza
 @app.errorhandler(413)
 def large(e):return jsonify(error='Archivo demasiado grande (máximo 8 MB).'),413
 @app.route('/')
-def index():return render_template('index.html')
+def index():return render_template('index.html',season=season_for())
 @app.post('/api/demo')
 def demo_access():
     if not DEMO:return jsonify(error='La demostración no está habilitada.'),403
@@ -172,7 +173,7 @@ def health():return jsonify(ok=True)
 @app.get('/api/session')
 def sess():
     with db() as c: setup=not c.execute('SELECT 1 FROM users').fetchone()
-    return jsonify(authenticated=bool(session.get('user')),csrf=session.get('csrf'),setup=setup,demo=DEMO)
+    return jsonify(authenticated=bool(session.get('user')),csrf=session.get('csrf'),setup=setup,demo=DEMO,season=season_for())
 @app.post('/api/setup')
 def setup():
     # Initial account can only be created on the computer running the server.
@@ -209,7 +210,7 @@ def state():
         shop_tok=shopify_auth.configured(cfg)
         safe_cfg={k:v for k,v in cfg.items() if k!='shopify_token'}
         safe_cfg['has_shopify_token']=bool(cfg.get('shopify_token'))
-        return jsonify(statement_sends=rows(c,'SELECT id,client_id,body,phone,balance,filename,status,wa_id,error,created FROM statement_sends ORDER BY id'),clients=clients,orders=orders,installments=ins,payments=rows(c,'SELECT * FROM payments ORDER BY id DESC'),allocations=allocs,receipts=rows(c,'SELECT id,client_id,filename,mime,status,created FROM receipts ORDER BY id DESC'),messages=rows(c,'SELECT * FROM messages ORDER BY id'),reminders=rows(c,'SELECT * FROM reminders ORDER BY at'),payment_notices=rows(c,'SELECT * FROM payment_notices ORDER BY payment_id DESC'),settings=safe_cfg,today=today(),demo=DEMO,integrations={'shopify':shop_tok and not DEMO,'whatsapp':bool(os.getenv('WA_ACCESS_TOKEN') and os.getenv('WA_PHONE_NUMBER_ID') and os.getenv('WA_APP_SECRET')) and not DEMO,'shop':os.getenv('SHOPIFY_DOMAIN') or cfg.get('shopify_domain') or 'cindylu.myshopify.com'})
+        return jsonify(statement_sends=rows(c,'SELECT id,client_id,body,phone,balance,filename,status,wa_id,error,created FROM statement_sends ORDER BY id'),clients=clients,orders=orders,installments=ins,payments=rows(c,'SELECT * FROM payments ORDER BY id DESC'),allocations=allocs,receipts=rows(c,'SELECT id,client_id,filename,mime,status,created FROM receipts ORDER BY id DESC'),messages=rows(c,'SELECT * FROM messages ORDER BY id'),reminders=rows(c,'SELECT * FROM reminders ORDER BY at'),payment_notices=rows(c,'SELECT * FROM payment_notices ORDER BY payment_id DESC'),settings=safe_cfg,today=today(),season=season_for(),demo=DEMO,integrations={'shopify':shop_tok and not DEMO,'whatsapp':bool(os.getenv('WA_ACCESS_TOKEN') and os.getenv('WA_PHONE_NUMBER_ID') and os.getenv('WA_APP_SECRET')) and not DEMO,'shop':os.getenv('SHOPIFY_DOMAIN') or cfg.get('shopify_domain') or 'cindylu.myshopify.com'})
 @app.get('/api/clients/<int:cid>/statement.pdf')
 def statement_pdf(cid):
     from statements import snapshot,pdf
@@ -887,5 +888,6 @@ if __name__=='__main__':
     print('Cindy Lú disponible en http://localhost:'+str(port),flush=True)
     from waitress import serve
     serve(app,host=host,port=port,threads=8)
+
 
 

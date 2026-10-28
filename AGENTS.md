@@ -1,0 +1,9 @@
+# Permanent Cindy Lú product preferences
+
+- Preserve the warm beige, champagne and gold identity in future updates. Use dark brown readable text and minimal gold shimmer. Seasonal decorations must remain restrained and must not obscure business data or controls.
+- The yearly account summary groups active registered purchases by their purchase date in America/Santiago. Payments, including prior imported payments, reduce the year of their purchase, regardless of payment date. Keep purchase totals, total paid, pending balance and count of purchases with balance separate. Do not describe these records as all Shopify sales for a year.
+- Use free abonos, with amount and actual payment date, reducing the pending balance. Never reintroduce fixed installments or scheduled collection dates unless explicitly requested. Preserve existing payment and purchase history.
+- Seasonal themes recur automatically, starting exactly 10 calendar days before Halloween (October 31), Christmas (December 25), the joint birthday of Cindy and Florencia (February 8), and Mother's Day as celebrated in Chile (second Sunday of May). End at the end of the event date in America/Santiago. Show a small countdown during the active window. Do not freeze ages into birthday artwork.
+- Keep both adult celebration details and gentle children's motifs for the joint birthday, in the same beige/gold palette. Vary the ornamental arrangement deterministically each year. New visual work must retain this palette and level of restraint.
+- The welcome logo finale uses independent continuous web animation, avoiding frozen particles baked into the video. Do not restore the stop/pause presentation button. Keep the sound toggle and support reduced-motion preferences.
+- Verify financial calculations, Chile date boundaries, recurring event windows and annual variation before publishing. Run Python tests, the Node annual-summary tests, and JavaScript syntax checks for touched scripts.
