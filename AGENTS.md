@@ -7,3 +7,6 @@
 - Keep both adult celebration details and gentle children's motifs for the joint birthday, in the same beige/gold palette. Vary the ornamental arrangement deterministically each year. New visual work must retain this palette and level of restraint.
 - The welcome logo finale uses independent continuous web animation, avoiding frozen particles baked into the video. Do not restore the stop/pause presentation button. Keep the sound toggle and support reduced-motion preferences.
 - Verify financial calculations, Chile date boundaries, recurring event windows and annual variation before publishing. Run Python tests, the Node annual-summary tests, and JavaScript syntax checks for touched scripts.
+
+
+- Keep celebration schedules internal to the code; do not render a calendar or a “Celebraciones automáticas” settings panel. Seasonal touches belong only to the internal interface (Resumen, Clientas and other management screens). Never add them to PDFs, account statements, WhatsApp bodies, payment notices or any other client-facing output.

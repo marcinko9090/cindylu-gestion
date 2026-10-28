@@ -20,5 +20,18 @@ nodes.get('#welcome-video').currentTime=3;handlers.timeupdate();
 assert.equal(nodes.get('.auth-film').dataset.phase,'brand');
 nodes.get('#welcome-video').currentTime=0;handlers.timeupdate();
 assert.equal(nodes.get('.auth-film').dataset.phase,'brand'); // Video looping cannot freeze/reset the finale.
-assert(context.window.CindySeasons.settingsMarkup().includes('Halloween'));
-console.log('Seasonal countdown, yearly composition, stable continuous finale and recurring calendar UI passed.');
+assert.equal(context.window.CindySeasons.settingsMarkup,undefined);
+const app=fs.readFileSync(require('node:path').join(__dirname,'../static/app.js'),'utf8');
+assert(!app.includes('settingsMarkup'));
+assert(!source.includes('Celebraciones automáticas'));
+// The season module decorates fixed UI elements, never financial/message content.
+assert(!source.includes('statement-preview'));
+assert(!source.includes('explain-text'));
+context.window.CindySeasons.apply({...config,key:'base',active:false});
+assert.equal(document.body.dataset.season,'base');
+assert.equal(nodes.get('#season-ornaments').innerHTML,'');
+context.window.CindySeasons.apply(config);
+assert.equal(document.body.dataset.season,'halloween');
+assert(nodes.get('#season-ornaments').innerHTML.includes('<svg'));
+console.log('Seasonal countdown, yearly composition, stable continuous finale and internal-only decoration, hidden calendar and base-theme reset passed.');
+

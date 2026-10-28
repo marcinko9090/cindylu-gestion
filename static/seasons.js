@@ -38,12 +38,8 @@
    glitter.innerHTML=particles+marks;
   }
  }
- function settingsMarkup(){
-  if(!current)return '';
-  const format=s=>new Intl.DateTimeFormat('es-CL',{day:'numeric',month:'long',year:'numeric',timeZone:'UTC'}).format(new Date(s+'T12:00:00Z'));
-  return '<section class="card season-settings"><h2>Celebraciones automáticas</h2><p>Beige, dorado y brillos discretos durante todo el año. Cada celebración se activa 10 días antes, con cuenta regresiva y una composición que varía cada año.</p><ul>'+current.calendar.map(e=>'<li><strong>'+e.label+'</strong><span>Desde el '+format(e.starts)+' hasta el '+format(e.date)+'</span></li>').join('')+'</ul><p>El Día de la Madre sigue el segundo domingo de mayo que se celebra en Chile.</p></section>';
- }
- window.CindySeasons={apply,settingsMarkup};
+ // Calendar rules stay internal; no configuration panel is rendered.
+ window.CindySeasons={apply};
  try{apply(JSON.parse(document.body.dataset.seasonConfig||'null'));}catch{}
  const video=$('#welcome-video'),film=$('.auth-film');
  if(video&&film){
@@ -66,3 +62,4 @@
   try{const response=await fetch('/api/session');if(response.ok){const data=await response.json();apply(data.season);}}catch{}
  },60000);
 })();
+
