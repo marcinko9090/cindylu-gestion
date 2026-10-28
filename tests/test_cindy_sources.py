@@ -105,6 +105,15 @@ class StagedImportTests(unittest.TestCase):
         with self.a.db(True) as c:c.execute("INSERT INTO clients(name) VALUES('Cambio concurrente')")
         self.assertEqual(self.confirm(r['token']).status_code,400)
         with self.a.db() as c:self.assertEqual(c.execute('SELECT COUNT(*) FROM purchase_history').fetchone()[0],0)
+    def test_historical_record_without_identity_is_preserved_unassigned(self):
+        row=copy.deepcopy(self.p['history'][0]);row.update(code='999',name='ERROR',key='unassigned-purchase')
+        self.p['history'].append(row)
+        r=self.review();self.assertEqual(self.confirm(r['token']).status_code,200)
+        with self.a.db() as c:
+            unknown=[json.loads(x[0]) for x in c.execute('SELECT data FROM historical_ambiguities WHERE client_id IS NULL')]
+            self.assertEqual(len(unknown),1);self.assertEqual(unknown[0]['code'],'999')
+            self.assertEqual(unknown[0]['reason'],'unidentified_historical_client')
+            self.assertFalse(c.execute("SELECT 1 FROM clients WHERE name='ERROR'").fetchone())
     def test_archives_only_known_excel_and_preserves_exact_shopify_products(self):
         with self.a.db(True) as c:
             cid=c.execute("INSERT INTO clients(name,notes) VALUES('Ana','COD 1 · Hospital')").lastrowid
