@@ -38,12 +38,33 @@ class PendingShopifyTests(unittest.TestCase):
         partial=copy.deepcopy(self.order);partial['displayFinancialStatus']='PARTIALLY_PAID';partial['totalOutstandingSet']['shopMoney']['amount']='100'
         self.sync([partial]);self.assertEqual(self.records()[0]['outstanding'],100)
         with a.db() as c:self.assertEqual(c.execute('SELECT COUNT(*) FROM payments').fetchone()[0],0)
-    def test_no_name_only_or_shared_phone_link(self):
+    def test_unique_full_name_fallback_and_shared_phone_conflicts(self):
         o=copy.deepcopy(self.order);o['customer'].pop('phone')
-        with a.db() as c:self.assertIsNone(pending_record(c,o,a.phone,a.now(),{})['client_id'])
+        with a.db() as c:
+            r=pending_record(c,o,a.phone,a.now(),{})
+            self.assertEqual(r['client_id'],self.cid);self.assertEqual(r['match'],'name')
         with a.db(True) as c:
             c.execute("INSERT INTO clients(name,phone) VALUES('Otra persona','56900000001')")
             self.assertIsNone(pending_record(c,self.order,a.phone,a.now(),{})['client_id'])
+    def test_name_fallback_normalizes_accents_case_and_spacing_without_financial_changes(self):
+        o=copy.deepcopy(self.order);o['customer']={'id':'gid/customer/new','displayName':'  JAVIERA   GONZALEZ  '}
+        with a.db() as c:
+            before={t:a.rows(c,'SELECT * FROM '+t) for t in ('clients','orders','payments')}
+            r=pending_record(c,o,a.phone,a.now(),{})
+            self.assertEqual(r['client_id'],self.cid);self.assertEqual(r['match'],'name')
+            for t in before:self.assertEqual(a.rows(c,'SELECT * FROM '+t),before[t])
+        self.sync([o]);self.assertEqual(self.records()[0]['client_id'],self.cid)
+    def test_duplicate_partial_names_and_conflicting_shopify_ids_are_not_linked(self):
+        o=copy.deepcopy(self.order);o['customer'].pop('phone')
+        with a.db(True) as c:
+            c.execute("INSERT INTO clients(name) VALUES('JAVIERA GONZALEZ')")
+            self.assertIsNone(pending_record(c,o,a.phone,a.now(),{})['client_id'])
+            c.execute("DELETE FROM clients WHERE id!=?",(self.cid,))
+            o['customer']['displayName']='Javiera'
+            self.assertIsNone(pending_record(c,o,a.phone,a.now(),{})['client_id'])
+            o['customer']['displayName']='Javiera Gonzalez'
+            c.execute("UPDATE clients SET shopify_id='gid/customer/different' WHERE id=?",(self.cid,))
+            self.assertIsNone(pending_record(c,o,a.phone,a.now(),{})['client_id'])
     def test_explicit_link_requires_csrf_and_fresh_snapshot_and_survives_sync(self):
         self.order['customer'].pop('phone');self.sync([self.order]);r=self.records()[0]
         body={'shopify_id':r['shopify_id'],'fingerprint':r['fingerprint'],'client_id':self.cid}

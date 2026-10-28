@@ -1,11 +1,17 @@
 """Read-only Shopify pending orders; Excel remains the authority for payments."""
 import hashlib
 import json
+import re
+import unicodedata
 from decimal import Decimal, InvalidOperation
 from shopify_review import shopify_items
 
 def digest(value):
     return hashlib.sha256(json.dumps(value,sort_keys=True,ensure_ascii=False).encode()).hexdigest()
+
+def full_name(value):
+    value=''.join(ch for ch in unicodedata.normalize('NFD',str(value or '').casefold()) if not unicodedata.combining(ch))
+    return ' '.join(re.findall(r'[^\W_]+',value,flags=re.UNICODE))
 
 def pending_record(c,order,clean_phone,stamp,links):
     if order.get('cancelledAt') or order.get('displayFinancialStatus') not in ('PENDING','PARTIALLY_PAID'):
@@ -38,6 +44,13 @@ def pending_record(c,order,clean_phone,stamp,links):
     client_id=candidates[0] if len(candidates)==1 else None
     match='contact' if client_id else ''
     manual=links.get(order['id'],{})
+    # Name fallback links descriptive products only; it never creates a client or financial record.
+    if not candidates and not manual:
+        key=full_name(name)
+        if len(key.split())>=2 and key!='sin nombre informado':
+            named=[dict(r) for r in c.execute('SELECT id,name,shopify_id FROM clients') if full_name(r['name'])==key]
+            if len(named)==1 and not (sid and named[0]['shopify_id'] and sid!=named[0]['shopify_id']):
+                client_id=named[0]['id'];match='name'
     if manual.get('identity')==identity and c.execute('SELECT 1 FROM clients WHERE id=?',(manual.get('client_id'),)).fetchone():
         client_id=manual['client_id'];match='manual'
     numeric=str(order['id']).rsplit('/',1)[-1]
