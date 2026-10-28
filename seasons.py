@@ -9,6 +9,7 @@ def events(year):
     may_first=dt.date(year,5,1)
     mother=may_first+dt.timedelta(days=(6-may_first.weekday())%7+7)
     return [
+        ('newyear','Año Nuevo',dt.date(year,1,1),'Un nuevo año para brillar'),
         ('birthday','Cumpleaños de Cindy y Florencia',dt.date(year,2,8),'Celebramos a Cindy y Florencia'),
         ('mother','Día de la Madre',mother,'Con cariño, para mamá'),
         ('halloween','Halloween',dt.date(year,10,31),'Un toque de magia dorada'),
@@ -21,6 +22,8 @@ def season_for(day=None):
     for year in (day.year,day.year+1):
         for key,label,event,greeting in events(year):
             if event>=day:calendar.append((event,key,label,greeting))
+    # During overlapping windows the nearest celebration takes precedence.
+    # Christmas remains until December 25, then New Year through January 1.
     event,key,label,greeting=min(calendar)
     remaining=(event-day).days
     active=remaining<=LEAD_DAYS
@@ -34,3 +37,4 @@ def season_for(day=None):
             'days':remaining,'countdown':countdown,'active':active,'year':event.year,
             'variant':event.year%4,'seed':event.year*31+sum(map(ord,key)),'timezone':ZONE,
             'calendar':sorted(upcoming,key=lambda e:e['date'])}
+
