@@ -18,11 +18,10 @@ context.window.CindySeasons.apply({...config,countdown:'3 días para Halloween'}
 assert.equal(nodes.get('.welcome-glitter').innerHTML,original);assert.equal(nodes.get('#header-garland').innerHTML,garland); // Updating a countdown must not restart particles.
 context.window.CindySeasons.apply({...config,year:2027,variant:3,seed:64031});
 assert.notEqual(nodes.get('.welcome-glitter').innerHTML,original);
-nodes.get('#welcome-video').currentTime=3;handlers.timeupdate();
-assert.equal(nodes.get('.auth-film').dataset.phase,'intro');
-nodes.get('#welcome-video').currentTime=0;handlers.timeupdate();
-assert.equal(nodes.get('.auth-film').dataset.phase,'intro'); // Every loop retains the complete original video.
-handlers.error();assert.equal(nodes.get('.auth-film').dataset.phase,'brand');handlers.playing();assert.equal(nodes.get('.auth-film').dataset.phase,'intro');assert.equal(nodes.get('#welcome-video').loop,true);
+const introTemplate=fs.readFileSync(require('node:path').join(__dirname,'../templates/index.html'),'utf8');
+assert(introTemplate.includes('intro-burst'));
+assert(!introTemplate.includes('presentacion.mp4'));
+assert(!introTemplate.includes('id="welcome-video"'));
 assert.equal(context.window.CindySeasons.settingsMarkup,undefined);
 const app=fs.readFileSync(require('node:path').join(__dirname,'../static/app.js'),'utf8');
 assert(!app.includes('settingsMarkup'));
@@ -89,7 +88,7 @@ function runtime(season,{brokenLogo=false,waitingLogo=false,reduced=false}={}){
  const entry=app.slice(app.indexOf('let firstSessionCheck=true;'),app.indexOf("$('#login-form').onsubmit"));
  async function sessionFlow(authenticated){
   let session={authenticated},welcomes=0,authScreens=0,refreshes=0;
-  const ctx={api:async()=>session,CindyCalm:{start(){}},CindySeasons:{apply(){},welcome(){assert(refreshes>0);welcomes++;}},$:()=>({pause(){},classList:{add(){},remove(){}}}),refresh:async()=>{refreshes++;},showAuth(){authScreens++;},S:{demo:false},csrf:''};
+  const ctx={api:async()=>session,window:{},CindyCalm:{start(){}},CindySeasons:{apply(){},welcome(){assert(refreshes>0);welcomes++;}},$:()=>({pause(){},classList:{add(){},remove(){}}}),refresh:async()=>{refreshes++;},showAuth(){authScreens++;},S:{demo:false},csrf:''};
   vm.runInNewContext(entry,ctx);await ctx.start();
   const first=welcomes;
   session={authenticated:true};await ctx.start();

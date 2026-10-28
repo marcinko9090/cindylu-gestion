@@ -1,0 +1,25 @@
+/* Cindy Lú: gold reveal, travelling light and a continuous center-out burst. */
+.auth-film.cindy-intro{isolation:isolate;background:radial-gradient(ellipse at 50% 48%,#fffaf0 0,#f2e6cc 38%,#decbaa 100%)}
+.cindy-intro::after{display:none}
+.intro-scene{position:absolute;inset:0;display:grid;place-items:center;overflow:hidden;--radius:clamp(110px,25vw,370px)}
+.intro-halo{position:absolute;left:50%;top:50%;width:75%;aspect-ratio:1;border-radius:50%;background:radial-gradient(circle,#fff5ce85,transparent 65%);transform:translate(-50%,-50%);animation:intro-halo 12s linear infinite;pointer-events:none}
+.intro-brand{position:relative;z-index:2;width:min(82%,530px);display:flex;flex-direction:column;align-items:center;text-align:center;gap:24px;animation:intro-reveal 12s linear infinite}
+.intro-phrase{margin:0;font:500 clamp(14px,1.65vw,24px)/1.5 Georgia,serif;letter-spacing:.045em;text-wrap:balance;color:#a47b29;background:linear-gradient(110deg,#8f6420 0%,#c69a43 34%,#fff5be 47%,#fff 50%,#e5bd63 54%,#946819 67%,#bb9040 100%);background-size:270% 100%;background-clip:text;-webkit-background-clip:text;-webkit-text-fill-color:transparent;animation:intro-text-shine 12s linear infinite}
+.intro-logo{position:relative;overflow:hidden;width:clamp(190px,30vw,390px);max-width:85%;border-radius:20%;isolation:isolate}
+.intro-logo img{display:block;width:100%;height:auto;filter:url(#intro-gold-tone);mix-blend-mode:multiply}
+.intro-logo::after{content:"";position:absolute;inset:-25% -60%;background:linear-gradient(110deg,transparent 40%,#fff8db10 45%,#fffdf3b0 49%,#fff 50%,#fff6d6a0 51%,transparent 58%);transform:translateX(-65%);mix-blend-mode:soft-light;animation:intro-logo-shine 12s linear infinite;pointer-events:none}
+.intro-burst{position:absolute;inset:0;z-index:3;pointer-events:none;overflow:hidden}
+.intro-burst i{position:absolute;left:50%;top:50%;width:var(--size);height:var(--size);border-radius:50%;background:radial-gradient(circle,#fff 0 18%,#fff0ab 35%,#e8b844 68%,#bc8e25 100%);box-shadow:0 0 5px #fff3c3,0 0 11px #e6b54c80;opacity:0;will-change:transform,opacity;animation:intro-gold-burst 12s var(--delay) linear infinite}
+.intro-burst i:nth-child(5n){border-radius:1px}
+.intro-ring{position:absolute;left:50%;top:50%;width:22px;height:22px;border:1px solid #e1bb68;border-radius:50%;opacity:0;pointer-events:none;animation:intro-ring 12s linear infinite}
+.cindy-intro .video-controls{z-index:5}
+@keyframes intro-reveal{0%{opacity:0;transform:scale(.96) translateY(8px)}12%,86%{opacity:1;transform:scale(1) translateY(0)}100%{opacity:0;transform:scale(1.015) translateY(-3px)}}
+@keyframes intro-text-shine{0%,12%{background-position:100% 50%}38%,100%{background-position:0% 50%}}
+@keyframes intro-logo-shine{0%,15%{transform:translateX(-65%)}42%,100%{transform:translateX(65%)}}
+@keyframes intro-halo{0%,100%{opacity:.25}18%{opacity:1}65%{opacity:.5}}
+@keyframes intro-gold-burst{0%,6%{opacity:0;transform:translate3d(-50%,-50%,0) scale(.2)}9%{opacity:1}25%{opacity:.95;transform:translate3d(calc(var(--dx) * var(--radius) * .65),calc(var(--dy) * var(--radius) * .65),0) scale(1)}53%{opacity:.75}80%,100%{opacity:0;transform:translate3d(calc(var(--dx) * var(--radius)),calc(var(--dy) * var(--radius) + 85px),0) scale(.45)}}
+@keyframes intro-ring{0%,7%{opacity:0;transform:translate(-50%,-50%) scale(.1)}10%{opacity:.65}34%,100%{opacity:0;transform:translate(-50%,-50%) scale(20)}}
+@media(max-width:1000px){.auth-film.cindy-intro{height:clamp(260px,45vw,440px);min-height:260px;max-height:none;aspect-ratio:auto;flex:none}.intro-brand{gap:10px;width:85%}.intro-logo{width:185px}.intro-phrase{font-size:15px;max-width:420px}.intro-scene{--radius:clamp(100px,28vw,260px)}}
+@media(max-width:480px){.intro-logo{width:160px}.intro-brand{gap:8px}.intro-phrase{font-size:13px;max-width:290px}}
+@media(prefers-reduced-motion:reduce){.intro-brand,.intro-phrase,.intro-logo::after,.intro-halo{animation:none}.intro-brand{opacity:1;transform:none}.intro-logo::after,.intro-burst,.intro-ring{display:none}}
+@media print{.cindy-intro{display:none}}

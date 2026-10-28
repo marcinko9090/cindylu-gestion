@@ -87,21 +87,6 @@
  }
  window.CindySeasons={apply,welcome};
  try{apply(JSON.parse(document.body.dataset.seasonConfig||'null'));}catch{}
- const video=$('#welcome-video'),film=$('.auth-film');
- if(video&&film){
-  // Keep the original full presentation playing on every loop. Never replace it at 2.9s.
-  const reveal=()=>{film.dataset.phase='brand';};
-  const playing=()=>{if(!reduced())film.dataset.phase='intro';};
-  video.loop=true;
-  video.addEventListener('playing',playing);
-  video.addEventListener('timeupdate',()=>{if(video.currentTime>.1&&!video.paused)playing();});
-  video.addEventListener('error',reveal);
-  if(reduced()){video.autoplay=false;video.pause();reveal();}
-  else video.play().catch(reveal);
-  // The animated logo is a fallback only while playback is unavailable.
-  setTimeout(()=>{if(reduced()||video.paused||video.currentTime<.1)reveal();},4200);
-  document.addEventListener('visibilitychange',()=>{if(!document.hidden&&!$('#auth')?.classList.contains('hidden')&&!reduced())video.play().catch(reveal);});
- }
  // Refresh calendar decoration for a page left open overnight, without touching account data.
  setInterval(async()=>{
   if(document.hidden||!current)return;
