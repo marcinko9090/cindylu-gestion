@@ -156,9 +156,13 @@ console.log('Client file: personal details, products, dated abonos and inline si
 const beforeClients=JSON.stringify(model.clients),beforeOrders=JSON.stringify(model.orders);
 model.clients[0].workplace='CLC';model.settings.shopify_client_tags[1]={tags:[]};
 assert.equal(ui.clientTags(model.clients[0]).join(','),'Clínica Las Condes');
-assert.equal(ui.tagLabel('clc estoril'),'Clínica Las Condes');
+assert.equal(ui.tagLabel('clc estoril'),'CLC Estoril');
+assert.equal(ui.tagLabel('Clínica Las Condes Estoril'),'CLC Estoril');
+model.clients[0].workplace='CLC ESTORIL';
+assert.equal(ui.clientTags(model.clients[0]).join(','),'CLC Estoril');
+model.clients[0].workplace='CLC';
 assert.equal(ui.tagLabel('CLÍNICA LAS CONDES'),'Clínica Las Condes');
-assert.equal(ui.tagLabels(['CLC','Clínica Las Condes','CLC ESTORIL']).length,1);
+assert.equal(ui.tagLabels(['CLC','Clínica Las Condes','CLC ESTORIL']).length,2);
 model.settings.shopify_client_tags[1]={tags:['VIP']};assert.equal(ui.clientTags(model.clients[0]).join(','),'VIP');
 model.settings.shopify_client_tags[1]={tags:[]};ui.workplaceFilter='clinica las condes';ui.clientDebtView='debt';
 assert.equal(ui.clientDirectory().clients.map(c=>c.id).join(','),'1');assert.equal(ui.clientDirectory().debt,5000);

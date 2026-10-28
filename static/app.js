@@ -84,7 +84,8 @@ function clientWorkplace(c){
 function tagLabel(value){
  const label=String(value||'').trim().replace(/\s+/g,' '),key=norm(label);
  if(!label||['sin etiquetas','sin etiqueta','sin lugar informado','sin lugar de trabajo','sin informacion','sin codigo','no informado','no aplica','n/a','-','—'].includes(key))return '';
- return /^(?:clc|clinica las condes)(?:\b|$)/.test(key)?'Clínica Las Condes':label;
+ if(/^(?:clc|clinica las condes)(?:\b|$)/.test(key))return /\bestoril\b/.test(key)?'CLC Estoril':'Clínica Las Condes';
+ return label;
 }
 function tagLabels(tags){
  const values=new Map();for(const raw of tags){const label=tagLabel(raw);if(label&&!values.has(norm(label)))values.set(norm(label),label);}
