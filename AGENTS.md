@@ -32,7 +32,7 @@
 
 - Abonos are recorded in Excel, not Shopify. Keep Excel/CXC and confirmed local payments authoritative. Show Shopify PENDING/PARTIALLY_PAID orders, dates and exact products as read-only reconciliation information under Clientas and in matched client files. Never import Shopify “paid” differences as abonos or add the pending-order totals to CXC automatically. Match contacts uniquely by Shopify customer ID/phone/email; never by name alone. Offer explicit manual linkage to an existing ficha for missing/ambiguous contacts, with stale-snapshot protection. Sync must not create client debt or redistribute Excel payments, and must replace the pending snapshot only after a complete successful fetch.
 
-- Classify the Clientas directory using Shopify customer tags and label the filter “Filtrar por etiquetas”. Fetch all customer pages so classification is independent of the age of their orders. Preserve original Excel workplaces in the contact file. Allow filtering on every tag of a client while counting each client/debt once; use a single primary tag to group the unfiltered list. Keep unlinked/untagged clients under “Sin etiquetas”, and preserve the previous complete tag snapshot if a sync fails. Never match on name alone.
+- Classify the Clientas directory using Shopify customer tags and label the filter “Filtrar por etiquetas”. Fetch all customer pages so classification is independent of the age of their orders. Preserve original Excel workplaces in the contact file. Allow filtering on every tag of a client while counting each client/debt once; use a single primary tag to group the unfiltered list. For clients without usable Shopify tags, use their existing Excel workplace as a local tag; show “Sin etiquetas” only when no workplace is available, and preserve the previous complete tag snapshot if a sync fails. Never match on name alone.
 
 
 - Keep the client account visually simple: never show the “Saldo del corte CXC” panel or its explanatory text/button, and hide the Compras block and purchase-total row when there are no product purchases. Keep the actual balance, all abonos and stored records intact. Preserve “Ingresar abono” and “Registrar compra” in the client header.
@@ -46,3 +46,6 @@
 
 
 - Returning authenticated sessions must show entry glitter even if the logo image is slow or fails: use the store-name fallback and keep particles moving until the welcome overlay fades completely. Do not let image decoding suppress the entry. Motivational notes remain five seconds; the original presentation remains active with no stop/finish button.
+
+
+- Fill missing tags in the existing fichas from their imported Excel workplace, without creating or merging client records or altering balances. Canonicalize CLC / CLC ESTORIL / Clínica Las Condes to the single displayed/filterable label “Clínica Las Condes”, keeping the original workplace text intact. Preserve usable Shopify tags; apply the same fallback and normalization in pending-order filters for safely linked clients. These are local classification tags, not automatic writes to Shopify.

@@ -40,7 +40,7 @@ const ledgerPayments=[
  {id:15,order_id:5,amount:10000,date:'2026-10-15',reversed:0}
 ];
 const model={clients:[{id:1,name:'Ana <Norte>'}],orders:ledgerOrders,payments:ledgerPayments,installments:[],today:'2026-10-27'};
-const ui={S:model,selected:1,clientSupportOpen:false,CindyClientPayment:{view:()=>'<aside id="client-payment-panel"></aside>'},CindyAnnual:{group},money:n=>'$'+new Intl.NumberFormat('es-CL').format(n),day:s=>s,
+const ui={norm:s=>String(s||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase(),S:model,selected:1,clientSupportOpen:false,CindyClientPayment:{view:()=>'<aside id="client-payment-panel"></aside>'},CindyAnnual:{group},money:n=>'$'+new Intl.NumberFormat('es-CL').format(n),day:s=>s,
  esc:s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])),initials:()=> 'AN',chat:()=>'<div data-test-chat></div>',clientList:()=>'<div data-test-directory></div>'};
 vm.createContext(ui);
 vm.runInContext(fs.readFileSync(require('node:path').join(__dirname,'../static/history.js'),'utf8'),ui);
@@ -150,3 +150,20 @@ assert(reorganized.includes('id="client-payment-panel"'));
 assert(ui.clientLedger(1,true).includes('Abonos realizados'));
 assert(!ui.clientLedger(1,true).includes('data-ledger-order='));
 console.log('Client file: personal details, products, dated abonos and inline side panel order passed.');
+
+
+// Missing Shopify tags use the existing Excel ficha, without new clients or debts.
+const beforeClients=JSON.stringify(model.clients),beforeOrders=JSON.stringify(model.orders);
+model.clients[0].workplace='CLC';model.settings.shopify_client_tags[1]={tags:[]};
+assert.equal(ui.clientTags(model.clients[0]).join(','),'Clínica Las Condes');
+assert.equal(ui.tagLabel('clc estoril'),'Clínica Las Condes');
+assert.equal(ui.tagLabel('CLÍNICA LAS CONDES'),'Clínica Las Condes');
+assert.equal(ui.tagLabels(['CLC','Clínica Las Condes','CLC ESTORIL']).length,1);
+model.settings.shopify_client_tags[1]={tags:['VIP']};assert.equal(ui.clientTags(model.clients[0]).join(','),'VIP');
+model.settings.shopify_client_tags[1]={tags:[]};ui.workplaceFilter='clinica las condes';ui.clientDebtView='debt';
+assert.equal(ui.clientDirectory().clients.map(c=>c.id).join(','),'1');assert.equal(ui.clientDirectory().debt,5000);
+assert.equal(model.clients.length,JSON.parse(beforeClients).length);assert.equal(JSON.stringify(model.orders),beforeOrders);
+assert.equal(ui.clientTags({id:999,workplace:'sin codigo'}).join(','),'Sin etiquetas');
+model.settings.shopify_pending_orders[0].tags=[];
+assert(ui.shopifyPendingView().includes('Perfume &lt;Rosa&gt; 100 ml'));
+console.log('Excel workplace fallback, CLC canonical label, Shopify tag precedence and unchanged client IDs/balances passed.');

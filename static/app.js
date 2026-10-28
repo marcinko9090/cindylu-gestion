@@ -64,7 +64,7 @@ function shopifyPendingClient(cid){
 }
 function shopifyPendingView(){
  const q=norm(shopifyPendingQuery).trim(),all=pendingShopifyOrders();
- const tagsFor=r=>r.tags?.length?r.tags:['Sin etiquetas'];
+ const tagsFor=r=>{const tags=tagLabels(r.tags||[]),client=S.clients.find(c=>c.id===r.client_id);return tags.length?tags:client?clientTags(client):['Sin etiquetas'];};
  const tagOptions=[...new Map(all.flatMap(r=>tagsFor(r)).map(t=>[norm(t).replace(/\s+/g,' ').trim(),t])).entries()].sort((a,b)=>a[1].localeCompare(b[1],'es')); 
  const list=all.map((r,index)=>({...r,index})).filter(r=>(!workplaceFilter||tagsFor(r).some(t=>norm(t).replace(/\s+/g,' ').trim()===workplaceFilter))&&(!q||norm(r.client_name+' '+r.number+' '+r.phone+' '+tagsFor(r).join(' ')+' '+(S.clients.find(c=>c.id===r.client_id)?.name||'')).includes(q))).sort((a,b)=>b.outstanding-a.outstanding||a.client_name.localeCompare(b.client_name,'es'));
  return `<section class="card"><h2>Clientas con pedidos pendientes en Shopify</h2><div class="form-actions" role="group" aria-label="Clientas por saldo"><button class="outline" data-directory-debt="debt">Clientas con deuda</button><button class="outline" data-directory-debt="no-debt">Clientas sin deuda</button><button class="primary" data-directory-debt="shopify" aria-pressed="true">Pendientes de Shopify (${all.length})</button></div><p>Compras y productos desde Shopify. Los abonos se consultan en la ficha vinculada y se mantienen según Excel.</p><p class="info-box">Por conciliar con la deuda actual. El saldo que Shopify muestra puede incluir abonos ya anotados en Excel; no se suma automáticamente a tu cartera.</p><label>Filtrar por etiquetas<select id="workplace-filter"><option value="">Todas las etiquetas</option>${tagOptions.map(([key,label])=>`<option value="${esc(key)}" ${workplaceFilter===key?'selected':''}>${esc(label)}</option>`).join('')}</select></label><label>Buscar clienta o pedido<input id="shopify-pending-search" value="${esc(shopifyPendingQuery)}" placeholder="Nombre, teléfono o número de pedido…"></label><div class="form-actions"><button class="outline" data-action="sync">Actualizar desde Shopify</button></div>${S.settings?.sync_at?`<small>Última consulta: ${esc(new Date(S.settings.sync_at).toLocaleString('es-CL'))}</small>`:''}</section><section class="card"><h3>${list.length} pedidos pendientes</h3>${list.map(r=>pendingShopifyRow(r,r.index)).join('')||'<p class="subtle">No hay pedidos disponibles en esta vista. Actualiza desde Shopify para consultar los pedidos accesibles.</p>'}</section>`;
@@ -81,10 +81,20 @@ function clientWorkplace(c){
  const imported=notes.match(/^COD\s+\S+\s*·\s*([^·\n]+)/i);
  return imported&&imported[1].trim()?imported[1].trim():'Sin lugar informado';
 }
+function tagLabel(value){
+ const label=String(value||'').trim().replace(/\s+/g,' '),key=norm(label);
+ if(!label||['sin etiquetas','sin etiqueta','sin lugar informado','sin lugar de trabajo','sin informacion','sin codigo','no informado','no aplica','n/a','-','—'].includes(key))return '';
+ return /^(?:clc|clinica las condes)(?:\b|$)/.test(key)?'Clínica Las Condes':label;
+}
+function tagLabels(tags){
+ const values=new Map();for(const raw of tags){const label=tagLabel(raw);if(label&&!values.has(norm(label)))values.set(norm(label),label);}
+ return [...values.values()].sort((a,b)=>a.localeCompare(b,'es'));
+}
 function clientTags(c){
- const tags=S.settings?.shopify_client_tags?.[String(c.id)]?.tags||[];
- const values=[...new Map(tags.map(t=>[norm(t).trim(),String(t).trim()])).values()].filter(Boolean).sort((a,b)=>a.localeCompare(b,'es'));
- return values.length?values:['Sin etiquetas'];
+ const values=tagLabels(S.settings?.shopify_client_tags?.[String(c.id)]?.tags||[]);
+ if(values.length)return values;
+ const workplace=tagLabel(clientWorkplace(c));
+ return workplace?[workplace]:['Sin etiquetas'];
 }
 function clientDirectory(mode=clientDebtView){
  const key=s=>norm(s).replace(/\s+/g,' ').trim(),labels=new Map();
@@ -121,7 +131,7 @@ if(nsBanner){
 }$('#demo-label').classList.toggle('hidden',!S.demo);$('#connection').textContent=S.demo?'WhatsApp · Muestra':S.integrations.whatsapp?'WhatsApp configurado':'WhatsApp sin conectar';$('#connection').className='pill '+(S.integrations.whatsapp?'green':'');$('#sync-notice').textContent=S.settings.sync_error;$('#sync-notice').classList.toggle('hidden',!S.settings.sync_error);const content={field:CindyField.view,'order-review':orderReviewView,clients:()=>selected?detail():clientList(),'shopify-sales':shopifySalesView,overview,receipts,reminders,settings:configuration};$('#content').innerHTML=content[view]();$('#refresh-status').textContent=S.demo?'Datos ficticios · Entorno de demostración':'Actualizado '+new Date().toLocaleTimeString('es-CL',{hour:'2-digit',minute:'2-digit'});bindContent()}
 async function refresh(renderNow=true){S=await api('state');if(S.season)CindySeasons.apply(S.season);if(renderNow)render()}
 function choose(id){clientSupportOpen=false;selected=Number(id);query='';$('#search').value='';view='clients';tab='purchases';$('#suggestions').classList.add('hidden');$('#search').setAttribute('aria-expanded','false');render();$('.sidebar').classList.remove('open')}
-function suggest(){query=$('#search').value;const q=norm(query.trim());const box=$('#suggestions');if(!q){box.classList.add('hidden');$('#search').setAttribute('aria-expanded','false');return}const matches=S.clients.filter(c=>norm(c.name+' '+c.phone+' '+clientWorkplace(c)).includes(q)).slice(0,20);box.innerHTML=matches.map(c=>`<button role="option" data-client="${c.id}"><div class="client-avatar">${esc(initials(c.name))}</div><div>${esc(c.name)}<small>${c.phone?'+'+esc(c.phone):'Sin teléfono'}</small></div><strong>${money(balance(c.id))}</strong></button>`).join('')||'<p>No hay coincidencias por nombre, teléfono o lugar de trabajo.</p>';box.classList.remove('hidden');$('#search').setAttribute('aria-expanded','true');box.querySelectorAll('button').forEach(b=>b.onclick=()=>choose(b.dataset.client))}
+function suggest(){query=$('#search').value;const q=norm(query.trim());const box=$('#suggestions');if(!q){box.classList.add('hidden');$('#search').setAttribute('aria-expanded','false');return}const matches=S.clients.filter(c=>norm(c.name+' '+c.phone+' '+clientWorkplace(c)+' '+clientTags(c).join(' ')).includes(q)).slice(0,20);box.innerHTML=matches.map(c=>`<button role="option" data-client="${c.id}"><div class="client-avatar">${esc(initials(c.name))}</div><div>${esc(c.name)}<small>${c.phone?'+'+esc(c.phone):'Sin teléfono'}</small></div><strong>${money(balance(c.id))}</strong></button>`).join('')||'<p>No hay coincidencias por nombre, teléfono o lugar de trabajo.</p>';box.classList.remove('hidden');$('#search').setAttribute('aria-expanded','true');box.querySelectorAll('button').forEach(b=>b.onclick=()=>choose(b.dataset.client))}
 function modal(title,html,submit){$('#modal-title').textContent=title;$('#modal-body').innerHTML=html;$('#modal').showModal();const form=$('#modal-body form');if(form&&submit)form.onsubmit=async e=>{e.preventDefault();const b=form.querySelector('button[type=submit]');b.disabled=true;try{await submit(form);$('#modal').close();await refresh();toast('Cambios guardados.')}catch(err){toast(err.message)}finally{b.disabled=false}}}
 const actions='<div class="form-actions"><button type="button" data-close>Cancelar</button><button type="submit" class="primary">Guardar</button></div>';
 const data=f=>Object.fromEntries(new FormData(f));
@@ -231,7 +241,7 @@ function statementModal(initial=null){
  modal('Descargar o enviar estado de cuenta PDF',`<form id="statement-form"><label>Buscar y seleccionar clienta<input id="statement-search" placeholder="Escribe un nombre, apellido o teléfono…" autocomplete="off" role="combobox" aria-expanded="true" aria-controls="statement-results"></label><div id="statement-results" class="statement-results" role="listbox" aria-label="Coincidencias de clientas"></div><section id="statement-preview" class="statement-preview"><p>Selecciona una clienta para descargar su PDF con logo o copiar su desglose.</p></section><div id="statement-feedback" role="status" class="subtle"></div><div class="form-actions"><button type="button" id="statement-close">Cerrar</button></div></form>`);
  const input=$('#statement-search'),results=$('#statement-results'),area=$('#statement-preview');
  const select=async cid=>{chosen=cid;const cl=S.clients.find(c=>c.id===cid);if(!cl)return;input.value=cl.name;results.innerHTML='';area.innerHTML=`<div class="statement-recipient"><strong>${esc(cl.name)}</strong><span>WhatsApp: ${cl.phone?'+'+esc(cl.phone):'Sin teléfono'}</span></div><div class="total-row"><span>Saldo total pendiente</span><strong>${money(balance(cid))}</strong></div><div style="display:flex;gap:10px;margin-top:12px"><a class="primary" style="text-decoration:none;padding:10px 16px;border-radius:999px" href="/api/clients/${cid}/statement.pdf">↓ Descargar PDF con logo</a><button type="button" class="outline" id="open-explain-from-stmt">📋 Copiar mensaje WhatsApp</button></div>`;$('#open-explain-from-stmt').onclick=()=>$('#modal').close()||explainModal(cid);};
- const suggestClients=()=>{const q=norm(input.value.trim()),all=S.clients.filter(c=>norm(c.name+' '+c.phone+' '+clientWorkplace(c)).includes(q)),cs=all.slice(0,20);results.innerHTML=cs.map(c=>`<button type="button" role="option" data-statement-client="${c.id}"><span><strong>${esc(c.name)}</strong><small>${c.phone?'+'+esc(c.phone):'Sin teléfono'}</small></span><b>${money(balance(c.id))}</b></button>`).join('')||'<p>Sin coincidencias.</p>';results.querySelectorAll('button').forEach(b=>b.onclick=()=>select(Number(b.dataset.statementClient)))};
+ const suggestClients=()=>{const q=norm(input.value.trim()),all=S.clients.filter(c=>norm(c.name+' '+c.phone+' '+clientWorkplace(c)+' '+clientTags(c).join(' ')).includes(q)),cs=all.slice(0,20);results.innerHTML=cs.map(c=>`<button type="button" role="option" data-statement-client="${c.id}"><span><strong>${esc(c.name)}</strong><small>${c.phone?'+'+esc(c.phone):'Sin teléfono'}</small></span><b>${money(balance(c.id))}</b></button>`).join('')||'<p>Sin coincidencias.</p>';results.querySelectorAll('button').forEach(b=>b.onclick=()=>select(Number(b.dataset.statementClient)))};
  input.oninput=suggestClients;input.onfocus=()=>{if(!chosen)suggestClients()};$('#statement-close').onclick=()=>$('#modal').close();
  if(initial)select(initial);else suggestClients();input.focus();
 }
@@ -374,6 +384,7 @@ function shopOrderReviewModal(index){
  const r=(S.settings.shopify_review_orders||[])[index];if(!r)return;
  modal('Revisar pedido '+r.number,`<form><p><b>${esc(r.client_name)}</b> · ${day(r.purchased)}</p><p class="info-box">${esc(r.reason)}</p><label>Estado de la revisión<select name="status"><option value="pending" ${r.status==='pending'?'selected':''}>Mantener por revisar</option><option value="reviewed" ${r.status==='reviewed'?'selected':''}>Revisado por la encargada</option></select></label><label>Observaciones de la encargada<textarea name="note" rows="5" maxlength="2000" required minlength="5" placeholder="Qué se comprobó y qué falta resolver">${esc(r.note||'')}</textarea></label><p class="subtle">Guardar esta revisión conserva la observación. Para descontar un abono confirmado, regístralo en la ficha de la clienta. Este botón no cambia el saldo ni incorpora ventas nuevas.</p>${actions}</form>`,f=>api('shopify/review',{...data(f),shopify_id:r.shopify_id,fingerprint:r.fingerprint}));
 }
+
 
 
 
