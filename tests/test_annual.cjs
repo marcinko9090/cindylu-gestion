@@ -107,6 +107,7 @@ console.log('Settled monthly history, exact product details, CXC cut separation,
 // Directory membership follows the current active debt, not settled CLUB history.
 ui.norm=s=>String(s||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase();
 ui.clientQuery='';ui.workplaceFilter='';ui.clientDebtView='debt';
+model.settings={shopify_client_tags:{1:{tags:['Hospital','Otra etiqueta']},2:{tags:['Hospital']},3:{tags:['Colegio']},4:{tags:['Hospital']}}};
 vm.runInContext(source.slice(source.indexOf('function clientDirectory('),source.indexOf('function overview(')),ui);
 model.clients=[{id:1,name:'Ana',workplace:'Hospital'},{id:2,name:'Bea',workplace:'Hospital'},
  {id:3,name:'Celia',workplace:'Colegio'},{id:4,name:'Dora',workplace:'Hospital'}];
@@ -123,3 +124,17 @@ ui.workplaceFilter='';ui.clientQuery='';model.orders[0].balance=0;
 ui.clientDebtView='debt';assert.equal(ui.clientDirectory().clients.length,0);
 ui.clientDebtView='no-debt';assert.equal(ui.clientDirectory().clients.length,4);
 console.log('Debt directory: unpaid CXC, paid CXC, CLUB-only clients, archived purchases, filters and settled balance passed.');
+
+
+// Every Shopify tag can filter a client, without multiplying her debt.
+model.orders[0].balance=5000;ui.clientDebtView='debt';ui.workplaceFilter='otra etiqueta';
+assert.equal(ui.clientDirectory().clients.map(c=>c.id).join(','),'1');assert.equal(ui.clientDirectory().debt,5000);
+ui.workplaceFilter='';assert.equal(ui.clientDirectory().debt,5000);assert.equal(ui.clientDirectory().groups.length,1);
+assert(ui.clientList().includes('Filtrar por etiquetas'));assert(!ui.clientList().includes('Filtrar por lugar de trabajo'));
+// Shopify balances remain informational; Excel/local balance is unchanged.
+model.settings.shopify_pending_orders=[{shopify_id:'gid/6437',number:'#6437',client_id:1,client_name:'Ana',phone:'',purchased:'2026-10-26',total:201950,outstanding:201950,financial_status:'PENDING',tags:['Hospital'],items:[{title:'Perfume <Rosa> 100 ml',quantity:1}]}];
+ui.shopifyPendingQuery='';const pendingHtml=ui.shopifyPendingView();
+assert(pendingHtml.includes('Perfume &lt;Rosa&gt; 100 ml'));assert(pendingHtml.includes('Ver ficha y abonos'));
+assert.equal(ui.balance(1),5000);assert(ui.shopifyPendingClient(1).includes('#6437'));
+ui.workplaceFilter='colegio';assert(!ui.shopifyPendingView().includes('Perfume &lt;Rosa&gt; 100 ml'));
+console.log('Shopify pending products, Excel balances and multi-tag classification passed.');

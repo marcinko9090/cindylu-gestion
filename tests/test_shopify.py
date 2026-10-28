@@ -123,6 +123,7 @@ class ShopifyReconciliationTests(unittest.TestCase):
         good=self.order()
         pages=[{'data':{'orders':{'nodes':[bad],'pageInfo':{'hasNextPage':True,'endCursor':'next'}}}},
                {'data':{'orders':{'nodes':[good],'pageInfo':{'hasNextPage':False}}}}]
+        pages.append({'data':{'customers':{'nodes':[],'pageInfo':{'hasNextPage':False}}}})
         with patch.object(a.shopify_auth,'access_token',return_value='fake'),patch.object(a,'httpjson',side_effect=pages):
             result=a.sync_shop()
         self.assertEqual(result,{'count':2,'linked':1,'updated':0,'pending':0,'conflict':1})
@@ -144,3 +145,4 @@ class ShopifyReconciliationTests(unittest.TestCase):
             result=self.http.post('/api/shopify/test',json={},headers={'X-CSRF-Token':'test'})
         self.assertEqual(result.json,{'ok':True,'shop':'Cindy Lú'})
         with a.db() as c:self.assertEqual(c.execute('SELECT COUNT(*) FROM orders').fetchone()[0],1)
+

@@ -8,6 +8,8 @@ from shopify_review import review_record, merge_review_records, shopify_items
 from flask import Flask, request, session, jsonify, send_file, render_template
 from seasons import season_for
 import cindy_import
+from shopify_pending import pending_record
+import shopify_tags
 from werkzeug.security import generate_password_hash, check_password_hash
 
 ROOT=Path(__file__).resolve().parent
@@ -629,7 +631,7 @@ def sync_shop():
     if DEMO:raise ValueError('Shopify no está disponible en demostración.')
     if not SYNC_LOCK.acquire(False):raise ValueError('Ya hay una sincronización en curso.')
     summary={'count':0,'linked':0,'updated':0,'pending':0,'conflict':0}
-    issues=[];review_queue=[];completed=set()
+    issues=[];review_queue=[];completed=set();pending_orders=[]
     try:
         cursor=None
         while True:
@@ -641,6 +643,8 @@ def sync_shop():
             with db(True) as c:
                 for o in page['nodes']:
                     if o['lineItems']['pageInfo']['hasNextPage']:raise ValueError('Un pedido supera 250 artículos; requiere importación ampliada. No se importó parcialmente.')
+                    record=pending_record(c,o,phone,now(),cfg.get('shopify_pending_links',{}))
+                    if record:pending_orders.append(record)
                     error=None
                     try:outcome=import_shop_order(c,o,allow_new=False)
                     except ShopifyMoneyError as exc:
@@ -651,9 +655,31 @@ def sync_shop():
                     summary[outcome]+=1;summary['count']+=1
             if not page['pageInfo']['hasNextPage']:break
             cursor=page['pageInfo']['endCursor']
+        tag_customers=None;tags_error=''
+        try:
+            def tags_request(query,variables):
+                return httpjson('https://'+domain+'/admin/api/'+os.getenv('SHOPIFY_API_VERSION','2026-10')+'/graphql.json',{'query':query,'variables':variables},{'X-Shopify-Access-Token':shopify_auth.access_token(cfg)})
+            tag_customers=shopify_tags.fetch_customers(tags_request)
+        except ValueError as exc:tags_error=str(exc)
         with db(True) as c:
             setval(c,'sync_at',now());setval(c,'sync_error','');setval(c,'shopify_sync_summary',summary)
             setval(c,'shopify_sync_issues',issues)
+            current_links=settings(c).get('shopify_pending_links',{})
+            for record in pending_orders:
+                link=current_links.get(record['shopify_id'],{})
+                if link.get('identity')==record['identity'] and c.execute('SELECT 1 FROM clients WHERE id=?',(link.get('client_id'),)).fetchone():
+                    record.update(client_id=link['client_id'],match='manual')
+            if tag_customers is not None:
+                tag_lookup={ct['id']:ct.get('tags',[]) for ct in tag_customers}
+                for record in pending_orders:record['tags']=tag_lookup.get(record['customer_id'],[])
+            else:
+                old_tags={r['shopify_id']:r.get('tags',[]) for r in settings(c).get('shopify_pending_orders',[])}
+                for record in pending_orders:record['tags']=old_tags.get(record['shopify_id'],[])
+            setval(c,'shopify_pending_orders',pending_orders)
+            setval(c,'shopify_tags_error',tags_error)
+            if tag_customers is not None:
+                setval(c,'shopify_client_tags',shopify_tags.classify(c,tag_customers,phone,pending_orders))
+                setval(c,'shopify_tags_at',now())
             setval(c,'shopify_review_orders',merge_review_records(settings(c).get('shopify_review_orders',[]),review_queue,completed))
             setval(c,'shopify_auto_sync',True);audit(c,'shopify_sync',summary)
         return summary
@@ -674,6 +700,23 @@ def save_shopify_review():
         item.update(status=status,note=note,reviewed_at=now(),reviewed_by=session['user'])
         setval(c,'shopify_review_orders',records)
         audit(c,'shopify_review_saved',{'shopify_id':sid,'status':status,'user':session['user']})
+    return jsonify(ok=True)
+@app.post('/api/shopify/pending/link')
+def link_pending_client():
+    d=request.get_json() or {}
+    try:cid=int(d.get('client_id',0))
+    except (ValueError,TypeError):raise ValueError('Selecciona una ficha existente.')
+    with db(True) as c:
+        one(c,'SELECT id FROM clients WHERE id=?',(cid,))
+        cfg=settings(c);records=cfg.get('shopify_pending_orders',[])
+        item=next((r for r in records if r['shopify_id']==str(d.get('shopify_id',''))),None)
+        if not item or item['fingerprint']!=str(d.get('fingerprint','')):
+            raise ValueError('El pedido cambió. Actualiza la página antes de vincularlo.')
+        links=cfg.get('shopify_pending_links',{})
+        links[item['shopify_id']]={'client_id':cid,'identity':item['identity']}
+        item.update(client_id=cid,match='manual')
+        setval(c,'shopify_pending_links',links);setval(c,'shopify_pending_orders',records)
+        audit(c,'shopify_pending_client_linked',{'shopify_id':item['shopify_id'],'client_id':cid})
     return jsonify(ok=True)
 @app.post('/api/shopify/test')
 def test_shopify_connection():
@@ -873,6 +916,7 @@ if __name__=='__main__':
     print('Cindy Lú disponible en http://localhost:'+str(port),flush=True)
     from waitress import serve
     serve(app,host=host,port=port,threads=8)
+
 
 
 
