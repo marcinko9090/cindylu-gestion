@@ -2,7 +2,7 @@
 (function(){
  'use strict';
  const storageKey='cindyFieldPending';
- const initial=()=>({place:'',placeQuery:'',clientId:null,clientQuery:'',orderId:null,amount:'',date:'',method:'efectivo',pending:null,busy:false,notice:'',error:'',needsRefresh:false,restored:false});
+ const initial=()=>({place:'',placeQuery:'',clientId:null,clientQuery:'',orderId:null,amount:'',date:'',method:'efectivo',notify:false,noticeTemplate:null,lastNotice:null,paymentId:null,pending:null,busy:false,notice:'',error:'',needsRefresh:false,restored:false});
  let state=initial();
  const key=value=>norm(value).replace(/\s+/g,' ').trim();
  function places(){
@@ -19,16 +19,17 @@
   try{
    const p=JSON.parse(sessionStorage.getItem(storageKey)||'null');if(!p)return;
    const order=S.orders.find(o=>o.id===p.order_id),client=S.clients.find(c=>c.id===p.client_id);
-   if(!client||!order||order.client_id!==client.id||!Number.isSafeInteger(p.amount)||p.amount<=0||!/^\w{40}$/.test(p.operation)||!['efectivo','transferencia','otro'].includes(p.method)||!/^\d{4}-\d{2}-\d{2}$/.test(p.date)){sessionStorage.removeItem(storageKey);return;}
-   Object.assign(state,{place:key(clientWorkplace(client)),placeQuery:clientWorkplace(client),clientId:client.id,clientQuery:client.name,orderId:order.id,amount:String(p.amount),date:p.date,method:p.method,pending:p,error:'Hay un abono pendiente de confirmación. Reintenta el mismo abono para comprobarlo sin duplicarlo.'});
+   if((p.notify!==undefined&&typeof p.notify!=='boolean')||(p.notice_template!==undefined&&typeof p.notice_template!=='string')||!client||!order||order.client_id!==client.id||!Number.isSafeInteger(p.amount)||p.amount<=0||!/^\w{40}$/.test(p.operation)||!['efectivo','transferencia','otro'].includes(p.method)||!/^\d{4}-\d{2}-\d{2}$/.test(p.date)){sessionStorage.removeItem(storageKey);return;}
+   Object.assign(state,{place:key(clientWorkplace(client)),placeQuery:clientWorkplace(client),clientId:client.id,clientQuery:client.name,orderId:order.id,amount:String(p.amount),date:p.date,method:p.method,notify:!!p.notify,noticeTemplate:p.notice_template||CindyNotices.template(S.settings),pending:p,error:'Hay un abono pendiente de confirmación. Reintenta el mismo abono para comprobarlo sin duplicarlo.'});
   }catch{}
  }
- function clearClient(){Object.assign(state,{clientId:null,clientQuery:'',orderId:null,amount:'',notice:'',error:''});}
+ function clearClient(){Object.assign(state,{clientId:null,clientQuery:'',orderId:null,amount:'',notify:false,noticeTemplate:null,lastNotice:null,paymentId:null,notice:'',error:''});}
  function selectedClient(){return S.clients.find(c=>c.id===state.clientId&&key(clientWorkplace(c))===state.place);}
  function selectedOrder(){return purchases(state.clientId).find(o=>o.id===state.orderId);}
  function preview(){if(state.pending)return 'Por confirmar';const o=selectedOrder(),a=Number(state.amount);return eligible(o)&&state.amount!==''&&Number.isSafeInteger(a)&&a>0&&a<=o.balance?money(o.balance-a):'—';}
+ function noticeValues(){return CindyNotices.values(selectedClient(),selectedOrder(),state.amount,state.date,balance(state.clientId));}
  function renderView(){
-  restore();if(!state.date)state.date=S.today;
+  restore();if(!state.date)state.date=S.today;if(state.noticeTemplate===null)state.noticeTemplate=CindyNotices.template(S.settings);
   const locked=state.busy||!!state.pending||state.needsRefresh,disabled=locked?'disabled':'',cl=selectedClient(),os=cl?purchases(cl.id):[],order=cl?selectedOrder():null;
   const ps=places().filter(p=>!key(state.placeQuery)||key(p.label).includes(key(state.placeQuery))),cs=state.place&&!cl?clients():[];
   return `<section class="card field-collection"><div class="card-head"><div><h2>Cobro en terreno</h2><p>Lugar de cobro, clienta y compra. Todo en esta pantalla.</p></div></div>
@@ -46,11 +47,12 @@
       <label for="field-amount">Ingresar abono (pesos chilenos)</label><input id="field-amount" name="amount" type="number" inputmode="numeric" min="1" step="1" ${order?'max="'+order.balance+'"':''} value="${esc(state.amount)}" placeholder="Ej. 20000" required ${locked||!eligible(order)?'disabled':''}>
       <div class="field-after"><span>Saldo de esta compra después del abono</span><strong id="field-after-balance">${preview()}</strong></div>
       <div class="field-payment-details"><label>Fecha del abono<input id="field-date" name="date" type="date" value="${esc(state.date)}" required ${disabled}></label><label>Medio de pago<select id="field-method" name="method" ${disabled}>${[['efectivo','Efectivo'],['transferencia','Transferencia'],['otro','Otro']].map(([v,l])=>`<option value="${v}" ${state.method===v?'selected':''}>${l}</option>`).join('')}</select></label></div>
+      ${CindyNotices.editor('field',state.notify,state.noticeTemplate,state.pending?'El mensaje se confirmará junto con el abono; reintenta la confirmación pendiente.':CindyNotices.format(state.noticeTemplate,noticeValues()),locked,CindyNotices.hint(cl,S.settings,S.integrations,S.demo))}
       <p class="subtle field-help">Confirma solo un pago recibido. Se descontará únicamente de la compra seleccionada.</p>
       <button type="submit" id="field-confirm" class="primary field-confirm" ${state.busy||state.needsRefresh||(!state.pending&&!eligible(order))?'disabled':''}>${state.busy?'Guardando abono…':state.pending?'Reintentar el mismo abono':'✓ Confirmar abono'}</button>
      </form>`:''}
    </fieldset>
-   <div class="field-feedback" role="status" aria-live="polite">${state.notice?`<p class="field-success">${esc(state.notice)}</p>`:''}${state.error?`<p class="danger">${esc(state.error)}</p>`:''}${state.needsRefresh?'<button type="button" id="field-refresh" class="outline">Actualizar saldos</button>':''}</div>
+   <div class="field-feedback" role="status" aria-live="polite">${state.notice?`<p class="field-success">${esc(state.notice)}</p>`:''}${state.error?`<p class="danger">${esc(state.error)}</p>`:''}${CindyNotices.status((S.payment_notices||[]).find(n=>n.payment_id===state.paymentId)||state.lastNotice)}${state.needsRefresh?'<button type="button" id="field-refresh" class="outline">Actualizar saldos</button>':''}</div>
   </section>`;
  }
  function redraw(id){const old=id?$('#'+id):null,pos=old?.selectionStart;render();const next=id?$('#'+id):null;if(next){next.focus();if(pos!=null&&next.setSelectionRange&&next.type!=='number')next.setSelectionRange(pos,pos);}}
@@ -62,9 +64,10 @@
   const input=$('#field-client');if(input)input.oninput=()=>{clearClient();state.clientQuery=input.value;redraw('field-client');};
   $$('#field-client-results [data-field-client]').forEach(b=>b.onclick=()=>{if(state.pending||state.busy)return;const cl=clients().find(c=>c.id===Number(b.dataset.fieldClient));if(!cl)return;clearClient();state.clientId=cl.id;state.clientQuery=cl.name;redraw('field-order');});
   const changeClient=$('#field-change-client');if(changeClient)changeClient.onclick=()=>{clearClient();redraw('field-client');};
-  const order=$('#field-order');if(order)order.onchange=()=>{state.orderId=Number(order.value)||null;state.amount='';state.notice='';state.error='';redraw('field-amount');};
-  const amount=$('#field-amount');if(amount)amount.oninput=()=>{state.amount=amount.value;$('#field-after-balance').textContent=preview();};
-  const date=$('#field-date');if(date)date.onchange=()=>state.date=date.value;
+  const order=$('#field-order');if(order)order.onchange=()=>{state.orderId=Number(order.value)||null;state.amount='';state.notice='';state.error='';state.lastNotice=null;state.paymentId=null;redraw('field-amount');};
+  const updateNotice=CindyNotices.bind('field',()=>state,draft=>Object.assign(state,draft),noticeValues);
+  const amount=$('#field-amount');if(amount)amount.oninput=()=>{state.amount=amount.value;$('#field-after-balance').textContent=preview();if(!state.pending)updateNotice();};
+  const date=$('#field-date');if(date)date.onchange=()=>{state.date=date.value;if(!state.pending)updateNotice();};
   const method=$('#field-method');if(method)method.onchange=()=>state.method=method.value;
   const form=$('#field-payment-form');if(form)form.onsubmit=submit;
   const retry=$('#field-refresh');if(retry)retry.onclick=async()=>{retry.disabled=true;try{await refresh(false);state.needsRefresh=false;state.error='';render();}catch{state.error='No se pudo actualizar. El abono ya está registrado; vuelve a intentar actualizar los saldos.';render();}};
@@ -75,11 +78,13 @@
   if(!state.pending){
    if(!cl||!eligible(order)||!Number.isSafeInteger(a)||a<=0||a>order.balance){state.error='Selecciona una compra e ingresa un abono mayor a cero que no supere su saldo.';render();return;}
    if(!/^\d{4}-\d{2}-\d{2}$/.test(state.date)){state.error='Indica la fecha del abono.';render();return;}
-   state.pending={client_id:cl.id,order_id:order.id,amount:a,date:state.date,method:state.method,operation:op(),notify:false,note:'Cobro en terreno · '+state.placeQuery};persist();
+   if(state.notify&&(!state.noticeTemplate.trim()||state.noticeTemplate.length>1000)){state.error='Escribe el mensaje o desmarca el envío por WhatsApp.';render();return;}
+   state.pending={client_id:cl.id,order_id:order.id,amount:a,date:state.date,method:state.method,operation:op(),notify:state.notify,notice_template:state.noticeTemplate,note:'Cobro en terreno · '+state.placeQuery};persist();
   }
   const pending={...state.pending};state.busy=true;state.error='';render();
   try{
-   await api('payments',pending);
+   const result=await api('payments',pending);
+   state.paymentId=result.id;state.lastNotice=result.notice||null;state.notify=false;state.noticeTemplate=CindyNotices.template(S.settings);
    state.pending=null;persist();state.amount='';state.notice='Abono de '+money(pending.amount)+' registrado en '+(order?.number||'la compra seleccionada')+'.';
    // A successful write remains successful even if the follow-up refresh loses connection.
    try{await refresh(false);state.notice+=' Saldo de la compra: '+money(S.orders.find(o=>o.id===pending.order_id)?.balance||0)+'. Saldo total de la clienta: '+money(balance(pending.client_id))+'.';}

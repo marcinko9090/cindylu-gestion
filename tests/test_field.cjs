@@ -1,5 +1,6 @@
 const fs=require('node:fs'),vm=require('node:vm'),assert=require('node:assert/strict'),path=require('node:path');
 const source=fs.readFileSync(path.join(__dirname,'../static/field.js'),'utf8');
+const notices=fs.readFileSync(path.join(__dirname,'../static/notices.js'),'utf8');
 const app=fs.readFileSync(path.join(__dirname,'../static/app.js'),'utf8');
 function harness(){
  let html='',nodes=new Map(),buttons=[],requests=[],operation=0,commits=new Map(),networkFailure=false,refreshFailure=false,serverError=false;
@@ -7,7 +8,7 @@ function harness(){
  const norm=s=>String(s||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase();
  const clients=[{id:1,name:'Ana Norte',phone:'56911111111',notes:'Trabajo: Hospital'},{id:2,name:'Bea Sur',phone:'56922222222',notes:'Trabajo: Colegio'},{id:3,name:'María <script>',phone:'56933333333',notes:'Trabajo: HOSPITAL'}];
  const order=(id,cid,balance,extra={})=>({id,client_id:cid,number:'#'+id,purchased:'2026-10-01',total:balance,base_paid:0,balance,review:'',status:'active',items:[{title:'Vestido & bolso',quantity:1}],...extra});
- const S={today:'2026-10-28',clients,orders:[order(11,1,20000),order(12,1,10000),order(13,1,8000,{review:'Cambio pendiente'}),order(14,1,0),order(15,1,9000,{status:'cancelled'}),order(21,2,7000)]};
+ const S={today:'2026-10-28',clients,settings:{payment_text:'Hola {nombre}: abono {monto} en {compra}. Saldo compra {saldo_compra}; total {saldo_total}. Fecha {fecha}.'},payment_notices:[],orders:[order(11,1,20000),order(12,1,10000),order(13,1,8000,{review:'Cambio pendiente'}),order(14,1,0),order(15,1,9000,{status:'cancelled'}),order(21,2,7000)]};
  const ctx={window:{},S,norm,money:n=>'$'+new Intl.NumberFormat('es-CL').format(n),day:s=>s,esc:s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])),op:()=>String(++operation).padStart(40,'0'),sessionStorage:{getItem:k=>store.get(k),setItem:(k,v)=>store.set(k,v),removeItem:k=>store.delete(k)},console};
  ctx.active=cid=>S.orders.filter(o=>o.status==='active'&&o.client_id===cid);
  ctx.balance=cid=>ctx.active(cid).reduce((sum,o)=>sum+o.balance,0);
@@ -16,9 +17,10 @@ function harness(){
  const attr=(text,name)=>text.match(new RegExp('(?:^|\\s)'+name+'="([^"]*)"'))?.[1]||'';
  function parse(){
   nodes=new Map();buttons=[];
-  for(const match of html.matchAll(/<(input|select|button|form|fieldset|strong)(\s[^>]+)>/g)){
+  for(const match of html.matchAll(/<(input|select|button|form|fieldset|strong|textarea|pre|div)(\s[^>]+)>/g)){
    const [tag,kind,attrs]=match,id=attr(attrs,'id');
-   const el={value:attr(attrs,'value'),type:attr(attrs,'type'),disabled:/(?:^|\s)disabled(?:\s|$)/.test(attrs),dataset:{},selectionStart:null,textContent:'',focus(){},setSelectionRange(){}};
+   const el={value:attr(attrs,'value'),type:attr(attrs,'type'),disabled:/(?:^|\s)disabled(?:\s|$)/.test(attrs),dataset:{},selectionStart:null,checked:/(?:^|\s)checked(?:\s|$)/.test(attrs),classList:{toggle(){}},textContent:'',focus(){},setSelectionRange(){}};
+   if(kind==='textarea'||kind==='pre'){const body=html.slice(match.index+tag.length,html.indexOf('</'+kind+'>',match.index));el.value=body.replaceAll('&amp;','&').replaceAll('&lt;','<').replaceAll('&gt;','>');el.textContent=el.value;}
    if(kind==='select'){
     const body=html.slice(match.index+tag.length,html.indexOf('</select>',match.index));
     const selected=[...body.matchAll(/<option([^>]+)>/g)].find(m=>/(?:^|\s)selected(?:\s|$)/.test(m[1]));el.value=selected?attr(selected[1],'value'):'';
@@ -32,19 +34,27 @@ function harness(){
  ctx.api=async(route,payload)=>{
   requests.push({route,payload:{...payload}});assert.equal(route,'payments');
   if(serverError)throw Object.assign(Error('Saldo actualizado: revisa el monto.'),{status:400});
-  if(commits.has(payload.operation))return {id:commits.get(payload.operation)};
-  const o=S.orders.find(o=>o.id===payload.order_id);assert(payload.amount<=o.balance);o.balance-=payload.amount;commits.set(payload.operation,commits.size+1);
+  if(commits.has(payload.operation))return commits.get(payload.operation);
+  const o=S.orders.find(o=>o.id===Number(payload.order_id));assert(payload.amount<=o.balance);o.balance-=payload.amount;const result={id:commits.size+1,notice:payload.notify?{payment_id:commits.size+1,body:ctx.CindyNotices.format(payload.notice_template,ctx.CindyNotices.values(S.clients.find(c=>c.id===o.client_id),{...o,balance:o.balance+Number(payload.amount)},payload.amount,payload.date,ctx.balance(o.client_id)+Number(payload.amount))),status:'pending'}:null};commits.set(payload.operation,result);
   if(networkFailure)throw Error('response lost after commit');
-  return {id:commits.size};
+  return result;
  };
  vm.createContext(ctx);vm.runInContext(app.slice(app.indexOf('function clientWorkplace('),app.indexOf('function clientDirectory(')),ctx);
+ vm.runInContext(notices,ctx);ctx.CindyNotices=ctx.window.CindyNotices;
+ function ordinaryPayment(){
+  let form,save;
+  ctx.selected=1;ctx.actions='';ctx.data=f=>({order_id:f.order_id.value,amount:f.amount.value,date:f.date.value,method:'efectivo'});
+  ctx.modal=(title,markup,submit)=>{html=markup;parse();save=submit;const control=value=>({value,addEventListener(event,handler){this[event]=handler;}});form={order_id:control('12'),amount:control(''),date:control(S.today),notify:nodes.get('payment-notify')};nodes.set('modal-body form',form);};
+  vm.runInContext(app.slice(app.indexOf('function paymentModal('),app.indexOf('function manual(')),ctx);ctx.paymentModal(12);
+  return {form,submit:()=>save(form)};
+ }
  function reload(){vm.runInContext(source,ctx);ctx.render();}
  reload();
  function clickPlace(name){const b=buttons.find(b=>b.dataset.fieldPlace===name);assert(b);b.onclick();}
  function clickClient(id){const b=buttons.find(b=>Number(b.dataset.fieldClient)===id);assert(b);b.onclick();}
  function chooseOrder(id){const el=nodes.get('field-order');el.value=String(id);el.onchange();}
  function enter(id,value,event='oninput'){const el=nodes.get(id);assert(el);el.value=value;el[event]();}
- return {ctx,S,store,requests,reload,clickPlace,clickClient,chooseOrder,enter,node:id=>nodes.get(id),html:()=>html,submit:()=>nodes.get('field-payment-form').onsubmit({preventDefault(){}}),network:v=>networkFailure=v,refreshFailure:v=>refreshFailure=v,serverError:v=>serverError=v};
+ return {ctx,S,store,requests,reload,ordinaryPayment,clickPlace,clickClient,chooseOrder,enter,node:id=>nodes.get(id),html:()=>html,submit:()=>nodes.get('field-payment-form').onsubmit({preventDefault(){}}),network:v=>networkFailure=v,refreshFailure:v=>refreshFailure=v,serverError:v=>serverError=v};
 }
 (async()=>{
  const h=harness();assert(!h.node('field-client'));h.enter('field-place','hos');assert(h.html().includes('Hospital'));assert(!h.html().includes('Colegio'));
@@ -73,5 +83,23 @@ function harness(){
  const invalid=harness();invalid.clickPlace('hospital');invalid.clickClient(1);invalid.chooseOrder(12);invalid.enter('field-amount','2000');invalid.serverError(true);await invalid.submit();assert.equal(invalid.store.size,0);assert(!invalid.node('field-amount').disabled);
  invalid.serverError(false);const handler=invalid.node('field-payment-form').onsubmit;const e={preventDefault(){}};await Promise.all([handler(e),handler(e)]);assert.equal(invalid.requests.length,2);assert.equal(invalid.S.orders.find(o=>o.id===12).balance,8000);
  invalid.ctx.window.CindyField.reset();assert.equal(invalid.store.size,0);
+ // Optional custom confirmation uses the actual purchase and post-payment balances.
+ const wa=harness();wa.clickPlace('hospital');wa.clickClient(1);wa.chooseOrder(12);wa.enter('field-amount','4000');
+ assert.equal(wa.node('field-notify').checked,false);wa.node('field-notify').checked=true;wa.node('field-notify').onchange();
+ wa.enter('field-notice-template','Gracias {nombre}, recibimos {monto} para {compra}. Restan {saldo_compra}; total {saldo_total}.');
+ assert(wa.node('field-notice-preview').textContent.includes('recibimos $4.000 para #12'));
+ assert(wa.node('field-notice-preview').textContent.includes('Restan $6.000; total $34.000'));
+ await wa.submit();assert.equal(wa.requests[0].payload.notify,true);assert(wa.requests[0].payload.notice_template.includes('{compra}'));
+ assert(wa.html().includes('Pendiente de envío'));assert(wa.html().includes('recibimos $4.000 para #12'));assert(!wa.html().includes('Ya se entregó'));
+ assert.equal(wa.node('field-notify').checked,false);
+ const retryWa=harness();retryWa.clickPlace('hospital');retryWa.clickClient(1);retryWa.chooseOrder(12);retryWa.enter('field-amount','2000');retryWa.node('field-notify').checked=true;retryWa.node('field-notify').onchange();retryWa.enter('field-notice-template','Abono {monto} en {compra}. Saldo {saldo_compra}.');retryWa.network(true);await retryWa.submit();
+ const frozen=retryWa.requests[0].payload;retryWa.reload();assert.equal(retryWa.node('field-notify').checked,true);assert(retryWa.node('field-notice-template').disabled);retryWa.network(false);await retryWa.submit();
+ assert.equal(retryWa.requests[1].payload.operation,frozen.operation);assert.equal(retryWa.requests[1].payload.notice_template,frozen.notice_template);assert.equal(retryWa.requests[1].payload.notify,true);
+ const blank=harness();blank.clickPlace('hospital');blank.clickClient(1);blank.chooseOrder(12);blank.enter('field-amount','1000');blank.node('field-notify').checked=true;blank.node('field-notify').onchange();blank.enter('field-notice-template','   ');await blank.submit();assert.equal(blank.requests.length,0);assert(blank.html().includes('Escribe el mensaje'));
+ blank.node('field-notify').checked=false;blank.node('field-notify').onchange();await blank.submit();assert.equal(blank.requests[0].payload.notify,false);
+
+ const ordinary=harness(),modal=ordinary.ordinaryPayment();modal.form.amount.value='3000';modal.form.amount.input();ordinary.node('payment-notify').checked=true;ordinary.node('payment-notify').onchange();ordinary.enter('payment-notice-template','Hola {nombre}: {monto} abonados a {compra}. Saldo {saldo_compra}.');
+ assert(ordinary.node('payment-notice-preview').textContent.includes('$3.000 abonados a #12. Saldo $7.000.'));
+ await modal.submit();assert.equal(ordinary.requests[0].payload.notify,true);assert(ordinary.requests[0].payload.notice_template.includes('{compra}'));assert.equal(ordinary.S.orders.find(o=>o.id===12).balance,7000);
  console.log('Field collection: location/client isolation, explicit purchase, balances, validation, idempotent retry/reload, double-tap and refresh failures passed.');
 })().catch(error=>{console.error(error);process.exitCode=1;});

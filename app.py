@@ -319,10 +319,15 @@ def payment():
         existing=c.execute('SELECT id FROM payments WHERE operation=?',(str(d.get('operation','')),)).fetchone()
         pid=pay(c,d)
         if not existing and bool(d.get('notify',settings(c)['payment_notify'])):
-            cid,body=payment_text(c,pid)
+            custom=d.get('notice_template')
+            if custom is not None and (not isinstance(custom,str) or not custom.strip() or len(custom)>1000):
+                raise ValueError('Escribe un mensaje de confirmación de entre 1 y 1000 caracteres, o desmarca el envío por WhatsApp.')
+            cid,body=payment_text(c,pid,custom.strip() if custom is not None else None)
             c.execute('INSERT INTO payment_notices(payment_id,client_id,body,status,created) VALUES(?,?,?,?,?)',(pid,cid,body,'demo' if DEMO else 'pending',now()))
             audit(c,'payment_notice_queued',{'payment_id':pid})
-    return jsonify(id=pid)
+        notice=c.execute('SELECT payment_id,body,status,error FROM payment_notices WHERE payment_id=?',(pid,)).fetchone()
+        notice=dict(notice) if notice else None
+    return jsonify(id=pid,notice=notice)
 @app.post('/api/payments/<int:pid>/reverse')
 def reverse(pid):
     reason=str(request.get_json().get('reason','')).strip()
@@ -691,13 +696,13 @@ def backup():
         bio.seek(0);return send_file(bio,mimetype='application/zip',download_name='CindyLu-respaldo-'+today()+'.zip',as_attachment=True)
     finally:tmp.unlink(missing_ok=True)
 
-def payment_text(c,pid):
+def payment_text(c,pid,template=None):
     p=one(c,'SELECT * FROM payments WHERE id=?',(pid,));o=one(c,'SELECT * FROM orders WHERE id=?',(p['order_id'],));cl=one(c,'SELECT * FROM clients WHERE id=?',(o['client_id'],))
     total=sum(balance(c,x['id']) for x in rows(c,"SELECT id FROM orders WHERE client_id=? AND status='active'",(cl['id'],)))
     fmt=lambda v:'$'+f'{v:,}'.replace(',','.')
     values={'nombre':cl['name'],'monto':fmt(p['amount']),'compra':o['number'],'saldo_compra':fmt(balance(c,o['id'])),'saldo_total':fmt(total),'fecha':p['date']}
-    text=settings(c)['payment_text']
-    for k,v in values.items():text=text.replace('{'+k+'}',str(v))
+    text=settings(c)['payment_text'] if template is None else template
+    text=re.sub(r'\{(nombre|monto|compra|saldo_compra|saldo_total|fecha)\}',lambda match:str(values[match[1]]),text)
     return cl['id'],text
 
 def process_payment_notices():
@@ -888,6 +893,7 @@ if __name__=='__main__':
     print('Cindy Lú disponible en http://localhost:'+str(port),flush=True)
     from waitress import serve
     serve(app,host=host,port=port,threads=8)
+
 
 
 
