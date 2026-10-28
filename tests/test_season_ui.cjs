@@ -85,7 +85,7 @@ function runtime(season,{brokenLogo=false,waitingLogo=false,reduced=false}={}){
  assert(!base.map.get('.panel-welcome-motifs').innerHTML.includes('pumpkin'));
  assert.equal(base.map.get('.panel-welcome-greeting').textContent,'');
  const reduced=runtime(config,{reduced:true});await reduced.api.welcome();assert(!reduced.map.get('#panel-welcome').classList.contains('hidden'));
- // Run the actual session-entry function: returning sessions only, after data is ready.
+ // Every page entry shows the presentation; explicit login must not stack a second welcome.
  const entry=app.slice(app.indexOf('let firstSessionCheck=true;'),app.indexOf("$('#login-form').onsubmit"));
  async function sessionFlow(authenticated){
   let session={authenticated},welcomes=0,authScreens=0,refreshes=0;
@@ -95,7 +95,7 @@ function runtime(season,{brokenLogo=false,waitingLogo=false,reduced=false}={}){
   session={authenticated:true};await ctx.start();
   return {first,welcomes,authScreens};
  }
- assert.deepEqual(await sessionFlow(true),{first:1,welcomes:1,authScreens:0});
+ assert.deepEqual(await sessionFlow(true),{first:0,welcomes:0,authScreens:1});
  assert.deepEqual(await sessionFlow(false),{first:0,welcomes:0,authScreens:1});
  const css=fs.readFileSync(require('node:path').join(__dirname,'../static/seasons.css'),'utf8');
  const envelope=css.slice(css.indexOf('@keyframes cindy-panel-reveal'),css.indexOf('@keyframes cindy-panel-logo'));
