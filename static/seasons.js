@@ -56,7 +56,7 @@
   }
   const ornaments=$('#season-ornaments');if(ornaments)ornaments.innerHTML=config.active?Array.from({length:4},(_,i)=>'<span class="season-ornament" style="--x:'+(i%2?94:3)+'%;--y:'+(14+i*23)+'%;--size:'+(34+rng()*24)+'px;--tilt:'+(-12+rng()*24)+'deg">'+svg(motifs[(i+config.variant)%motifs.length])+'</span>').join(''):'';
   const glitter=$('.welcome-glitter');if(glitter){
-   const particles=Array.from({length:28},()=>'<i style="--x:'+(rng()*100)+'%;--y:'+(rng()*100)+'%;--size:'+(1+rng()*3)+'px;--drift:'+(-22+rng()*44)+'px;--duration:'+(7+rng()*8)+'s;--delay:'+(-rng()*15)+'s"></i>').join('');
+   const particles=Array.from({length:28},()=>'<i style="--x:'+(rng()*100)+'%;--size:'+(2+rng()*3)+'px;--drift:'+(-22+rng()*44)+'px;--duration:'+(7+rng()*5)+'s;--delay:'+(-rng()*12)+'s"></i>').join('');
    const marks=Array.from({length:config.active?5:2},(_,i)=>'<span class="welcome-motif" style="--x:'+(9+rng()*80)+'%;--y:'+(9+rng()*78)+'%;--size:'+(24+rng()*25)+'px;--tilt:'+(-18+rng()*36)+'deg">'+svg(motifs[(i+config.variant)%motifs.length])+'</span>').join('');
    glitter.innerHTML=particles+marks;
   }
@@ -75,7 +75,7 @@
   const config=current,rng=random(config.seed+97),motifs=palettes[config.key]||palettes.base;
   const marks=$('.panel-welcome-motifs'),particles=$('.panel-welcome-glitter');
   if(marks)marks.innerHTML=Array.from({length:config.active?6:3},(_,i)=>'<span class="panel-welcome-motif" style="--x:'+([19,76,13,81,28,67][i])+'%;--y:'+([25,26,61,63,79,80][i])+'%;--size:'+(32+rng()*22)+'px;--tilt:'+(-12+rng()*24)+'deg;--drift:'+(-8+rng()*16)+'px">'+svg(motifs[i%motifs.length])+'</span>').join('');
-  if(particles)particles.innerHTML=Array.from({length:32},()=>'<i style="--x:'+(12+rng()*76)+'%;--y:'+(14+rng()*72)+'%;--size:'+(1+rng()*3)+'px;--drift:'+(-22+rng()*44)+'px;--delay:'+(-rng()*7)+'s"></i>').join('');
+  if(particles)particles.innerHTML=Array.from({length:32},()=>'<i style="--x:'+(rng()*100)+'%;--size:'+(2+rng()*3)+'px;--drift:'+(-22+rng()*44)+'px;--duration:'+(7+rng()*5)+'s;--delay:'+(-rng()*12)+'s"></i>').join('');
   const greeting=$('.panel-welcome-greeting');if(greeting)greeting.textContent=config.active?config.greeting:'';
   let fallback;
   const finish=()=>{overlay.classList.add('hidden');overlay.classList.remove('is-playing');overlay.classList.remove('logo-fallback');if(marks)marks.innerHTML='';if(particles)particles.innerHTML='';overlay.removeEventListener('animationend',ended);clearTimeout(fallback);};
