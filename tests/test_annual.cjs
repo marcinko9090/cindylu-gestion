@@ -99,7 +99,7 @@ assert(cutHtml.includes('Saldo del corte CXC'));assert(cutHtml.includes('Abonos 
 assert(!cutHtml.includes('data-ledger-order="6"')); // A cut is not presented as a product purchase.
 assert.equal((cutHtml.match(/data-ledger-payment="17"/g)||[]).length,1);
 assert.equal(ui.CindyHistory.payments(model,1).length,1);
-assert(cutHtml.includes('ya considerado en el corte, no se descuenta otra vez'));
+assert(!cutHtml.includes('ya considerado en el corte, no se descuenta otra vez'));assert(!cutHtml.includes('Último abono indicado en CXC'));assert(!cutHtml.includes('Reemplazada por corte CXC'));
 console.log('Settled monthly history, exact product details, CXC cut separation, payment references and month-only year grouping passed.');
 
 
