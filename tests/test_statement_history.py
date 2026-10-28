@@ -23,7 +23,7 @@ class StatementHistoryTests(unittest.TestCase):
             data=snapshot(c,self.cid,a.balance,'28/10/2026 13:50')
             self.assertEqual(data['balance'],90000)
             self.assertEqual(data['shopify_orders'][0]['total'],98490)
-            self.assertEqual([p['amount'] for p in data['payment_history']],[7000,5000,10000])
+            self.assertEqual([p['amount'] for p in data['payment_history']],[10000])
             self.assertEqual(len(data['orders']),1)
         self.assertTrue(pdf(data).getvalue().startswith(b'%PDF'))
     def test_paid_active_order_abonos_retained_and_archived_excluded(self):
@@ -35,13 +35,17 @@ class StatementHistoryTests(unittest.TestCase):
             self.assertEqual(data['balance'],90000)
             self.assertIn(12345,[p['amount'] for p in data['payment_history']])
             self.assertNotIn(99999,[p['amount'] for p in data['payment_history']])
-    def test_digest_changes_when_excel_history_or_linked_products_change(self):
+    def test_hidden_history_does_not_change_display_digest_but_visible_history_does(self):
         with a.db(True) as c:
             _,before=a.statement_preview_data(c,self.cid)
             c.execute("UPDATE cxc_payment_history SET amount=5001 WHERE key='old'")
             _,after=a.statement_preview_data(c,self.cid)
-            self.assertNotEqual(before['digest'],after['digest'])
+            self.assertEqual(before['digest'],after['digest'])
             self.assertEqual(before['balance'],after['balance'])
+            c.execute("UPDATE cxc_payment_history SET date='2026-10-26' WHERE key='old'")
+            _,visible=a.statement_preview_data(c,self.cid)
+            self.assertNotEqual(before['digest'],visible['digest'])
+            self.assertEqual(before['balance'],visible['balance'])
     def test_same_purchase_cards_include_closed_and_reference_products_only_once(self):
         with a.db(True) as c:
             items=json.dumps([{'title':'Sombra de prueba','quantity':2}])
