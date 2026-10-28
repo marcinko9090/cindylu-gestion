@@ -73,7 +73,7 @@ ui.clientSupportOpen=true;assert(ui.detail().includes('class="client-ledger-supp
 model.orders[0].balance-=1000;model.payments.push({id:16,order_id:1,amount:1000,date:'2026-10-27',reversed:0});
 assert(ui.clientLedger(1).includes('Saldo vigente</span><strong>$23.000'));assert(ui.stats(1).includes('$14.000'));
 model.clients.push({id:3,name:'Sin compras'});ui.selected=3;
-page=ui.detail();assert(page.includes('No hay compras registradas.'));assert(page.includes('Todavía no hay pagos registrados.'));assert(page.includes('Saldo vigente</span><strong>$0'));
+page=ui.detail();assert(!page.includes('No hay compras registradas.'));assert(!page.includes('<h3>Compras</h3>'));assert(page.includes('data-action="manual"'));assert(page.includes('Todavía no hay pagos registrados.'));assert(page.includes('Saldo vigente</span><strong>$0'));
 ui.selected=999;assert(ui.detail().includes('data-test-directory'));assert.equal(ui.selected,null);
 console.log('Simple client ledger: exact products/quantities, fully paid purchases, single current balance, dated/undated payments, annulled history, year-only summary and payment actions passed.');
 model.purchase_history=[{client_id:1,period:'2024-02',date:'2024-02-10',number:'#200',amount:2500,kind:'purchase',detail:'PEDIDO',items:[{quantity:2,title:'Labial <Rosa> 5 ml'}]},
@@ -95,7 +95,7 @@ assert.equal(yearly[1].months.size,2);
 assert.equal(yearly.reduce((s,y)=>s+y.total,0),5700);
 assert(historyHtml.includes('$2.000'));assert(historyHtml.includes('2 × Labial &lt;Rosa&gt; 5 ml'));assert(historyHtml.includes('2024-02'));assert(historyHtml.includes('no genera deuda'));
 const cutHtml=ui.clientLedger(1);
-assert(cutHtml.includes('Saldo del corte CXC'));assert(cutHtml.includes('Abonos realizados'));assert(!cutHtml.includes('Sin pedido indicado en CXC'));
+assert(!cutHtml.includes('Saldo del corte CXC'));assert(!cutHtml.includes('El archivo informa una deuda por clienta.'));assert(cutHtml.includes('Abonos realizados'));assert(!cutHtml.includes('Sin pedido indicado en CXC'));
 assert(!cutHtml.includes('data-ledger-order="6"')); // A cut is not presented as a product purchase.
 assert.equal((cutHtml.match(/data-ledger-payment="17"/g)||[]).length,1);
 assert.equal(ui.CindyHistory.payments(model,1).length,1);
@@ -138,3 +138,4 @@ assert(pendingHtml.includes('Perfume &lt;Rosa&gt; 100 ml'));assert(pendingHtml.i
 assert.equal(ui.balance(1),5000);assert(ui.shopifyPendingClient(1).includes('#6437'));
 ui.workplaceFilter='colegio';assert(!ui.shopifyPendingView().includes('Perfume &lt;Rosa&gt; 100 ml'));
 console.log('Shopify pending products, Excel balances and multi-tag classification passed.');
+
