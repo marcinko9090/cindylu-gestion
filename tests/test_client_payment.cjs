@@ -20,6 +20,15 @@ const model=()=>({clients:[{id:1,name:'Clienta'}],orders:[{id:10,client_id:1,sta
  f.verify();await f.submit();assert.equal(calls.length,1);
  assert.equal(calls[0].path,'payments');assert.equal(calls[0].payload.order_id,10);assert.equal(calls[0].payload.amount,5000);assert.equal(calls[0].payload.date,'2026-10-27');
  assert.equal(calls[0].payload.notify,false);assert(!f.api.hasDraft());
+ // An abono reduces only the explicitly selected account and therefore the client balance.
+ m=model();m.orders.push({id:11,client_id:1,status:'active',source:'manual',number:'#other',balance:7000});
+ f=fixture(m,new Map(),async(_path,payload)=>{m.orders.find(o=>o.id===payload.order_id).balance-=payload.amount;return {id:2};});
+ const choose=f.api.view(1);assert(!choose.includes('<label class="hidden">Aplicar a'));
+ f.api.bind();f.input('client-payment-order','10');f.input('client-payment-amount','5000');f.verify();await f.submit();
+ assert.equal(m.orders[0].balance,15000);assert.equal(m.orders[1].balance,7000);assert.equal(f.ctx.balance(1),22000);
+ assert(!f.api.view(1).includes('Saldo vigente:')); // One balance belongs below the ledger, not repeated in the form.
+ m.orders[0].balance=0;
+ assert(f.api.view(1).includes('value="11" selected')); // Closing a purchase must not leave a hidden stale selection.
  // Lost response after a committed payment, then a page reload: retry the identical operation.
  m=model();const store=new Map();let first;
  f=fixture(m,store,async(_path,payload)=>{first=JSON.stringify(payload);m.orders[0].balance=0;throw Error('Lost response');});
@@ -34,3 +43,4 @@ const model=()=>({clients:[{id:1,name:'Clienta'}],orders:[{id:10,client_id:1,sta
  f.api.reset();assert(!f.api.hasDraft());
  console.log('Inline abonos: selected local account, actual date, verified receipt, no automatic message, identical retry after reload and no unconfirmed Shopify debt passed.');
 })().catch(e=>{console.error(e);process.exit(1);});
+

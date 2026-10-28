@@ -45,7 +45,7 @@ function harness(){
   let form,save;
   ctx.selected=1;ctx.actions='';ctx.data=f=>({order_id:f.order_id.value,amount:f.amount.value,date:f.date.value,method:'efectivo'});
   ctx.modal=(title,markup,submit)=>{html=markup;parse();save=submit;const control=value=>({value,addEventListener(event,handler){this[event]=handler;}});form={order_id:control('12'),amount:control(''),date:control(S.today),notify:nodes.get('payment-notify')};nodes.set('modal-body form',form);};
-  vm.runInContext(app.slice(app.indexOf('function paymentModal('),app.indexOf('function manual(')),ctx);ctx.paymentModal(12);
+  vm.runInContext(app.slice(app.indexOf('function paymentModal('),app.indexOf('function upload(')),ctx);ctx.paymentModal(12);
   return {form,submit:()=>save(form)};
  }
  function reload(){vm.runInContext(source,ctx);ctx.render();}
@@ -103,3 +103,4 @@ function harness(){
  await modal.submit();assert.equal(ordinary.requests[0].payload.notify,true);assert(ordinary.requests[0].payload.notice_template.includes('{compra}'));assert.equal(ordinary.S.orders.find(o=>o.id===12).balance,7000);
  console.log('Field collection: location/client isolation, explicit purchase, balances, validation, idempotent retry/reload, double-tap and refresh failures passed.');
 })().catch(error=>{console.error(error);process.exitCode=1;});
+

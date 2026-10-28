@@ -56,7 +56,8 @@ assert.deepEqual([...main.matchAll(/data-ledger-order="(\d+)"/g)].map(m=>Number(
 assert(main.includes('3 ×</span> Perfume Ámbar &amp; Rosa'));
 assert(main.includes('2 ×</span> Perfume &lt;Vainilla&gt;'));
 assert(main.includes('Detalle de productos no informado.'));
-assert(main.includes('Total de compras registradas en esta cuenta</span><strong>$59.000'));
+assert(!main.includes('Total de compras registradas en esta cuenta'));
+assert(main.indexOf('Abonos realizados')<main.indexOf('ledger-current-balance'));
 assert.equal((main.match(/class="total-row final ledger-current-balance"/g)||[]).length,1);
 assert(main.includes('Saldo vigente</span><strong>$24.000'));
 assert.deepEqual([...main.matchAll(/data-ledger-payment="(\d+)"/g)].map(m=>Number(m[1])),[11,12]);
@@ -73,7 +74,7 @@ ui.clientSupportOpen=true;assert(ui.detail().includes('class="client-ledger-supp
 model.orders[0].balance-=1000;model.payments.push({id:16,order_id:1,amount:1000,date:'2026-10-27',reversed:0});
 assert(ui.clientLedger(1).includes('Saldo vigente</span><strong>$23.000'));assert(ui.stats(1).includes('$14.000'));
 model.clients.push({id:3,name:'Sin compras'});ui.selected=3;
-page=ui.detail();assert(!page.includes('No hay compras registradas.'));assert(!page.includes('<h3>Compras</h3>'));assert(page.includes('data-action="manual"'));assert(page.includes('Todavía no hay pagos registrados.'));assert(page.includes('Saldo vigente</span><strong>$0'));
+page=ui.detail();assert(!page.includes('No hay compras registradas.'));assert(!page.includes('<h3>Compras</h3>'));assert(!page.includes('data-action="manual"'));assert(page.includes('Todavía no hay pagos registrados.'));assert(page.includes('Saldo vigente</span><strong>$0'));
 ui.selected=999;assert(ui.detail().includes('data-test-directory'));assert.equal(ui.selected,null);
 console.log('Simple client ledger: exact products/quantities, fully paid purchases, single current balance, dated/undated payments, annulled history, year-only summary and payment actions passed.');
 model.purchase_history=[{client_id:1,period:'2024-02',date:'2024-02-10',number:'#200',amount:2500,kind:'purchase',detail:'PEDIDO',items:[{quantity:2,title:'Labial <Rosa> 5 ml'}]},
@@ -108,7 +109,7 @@ console.log('Settled monthly history, exact product details, CXC cut separation,
 ui.norm=s=>String(s||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase();
 ui.clientQuery='';ui.workplaceFilter='';ui.clientDebtView='debt';
 model.settings={shopify_client_tags:{1:{tags:['Hospital','Otra etiqueta']},2:{tags:['Hospital']},3:{tags:['Colegio']},4:{tags:['Hospital']}}};
-vm.runInContext(source.slice(source.indexOf('function clientDirectory('),source.indexOf('function overview(')),ui);
+vm.runInContext(source.slice(source.indexOf('function clientDirectory('),source.indexOf('function reminders(')),ui);
 model.clients=[{id:1,name:'Ana',workplace:'Hospital'},{id:2,name:'Bea',workplace:'Hospital'},
  {id:3,name:'Celia',workplace:'Colegio'},{id:4,name:'Dora',workplace:'Hospital'}];
 model.orders=[makeOrder(101,1,10000,0,5000,'2026-10'),makeOrder(102,2,10000,0,0,'2026-10'),
@@ -198,7 +199,48 @@ model.settings.shopify_pending_orders[0].total=99999;
 assert.equal((ui.clientPurchaseDetails(1).match(/Base MAC stick/g)||[]).length,1); // Separate reference, never attached to a mismatched order.
 model.orders=[];model.settings.shopify_pending_orders=[];
 cards=ui.clientPurchaseDetails(1);
-assert(cards.includes('Compras y productos'));assert(cards.includes('Todavía no hay productos vinculados'));
+assert(cards.includes('<h2>Compras</h2>'));assert(cards.includes('Todavía no hay productos vinculados'));
 assert(cards.includes('data-action="sync"'));
 model.orders=savedOrders;model.settings.shopify_pending_orders=savedPending;
 console.log('Restructured products, incomplete pending details, no fabricated products and unchanged balances passed.');
+
+// One account layout: no repeated client name, dated products, payments, balance, free abono.
+const purchaseBlock=ui.clientPurchaseDetails(1),account=ui.detail();
+assert(purchaseBlock.includes('COMPRA #6437'));
+assert(purchaseBlock.includes('Realizada el 26 OCT 2026'));
+assert(purchaseBlock.includes('Detalle de productos:'));
+assert(!purchaseBlock.includes(' · Ana'));
+assert(account.indexOf('Abonos realizados')<account.indexOf('ledger-current-balance'));
+assert(account.indexOf('ledger-current-balance')<account.indexOf('id="client-payment-panel"'));
+assert(!account.includes('Registrar compra'));
+assert(!source.includes('function shopifySalesView'));
+assert(!source.includes('function overview'));
+assert(!source.includes('function manual('));
+assert(!source.includes('function newSaleFullModal'));
+const shell=fs.readFileSync(require('node:path').join(__dirname,'../templates/index.html'),'utf8');
+assert(shell.includes('data-view="clients"'));
+for(const old of ['data-view="overview"','data-view="shopify-sales"','data-view="order-review"','id="new-sales-banner"'])assert(!shell.includes(old));
+assert(ui.clientDirectoryTabs().includes('data-directory-debt="review"'));
+assert.equal(ui.purchaseDate('2026-01-01T01:00:00Z'),'31 DIC 2025');
+console.log('Unified Clientas navigation, dated purchase cards, no repeated names and payments/balance/abono order passed.');
+
+// Render the complete application (not only extracted functions) to catch broken navigation references.
+const nodes=new Map();
+for(const id of [...shell.matchAll(/\bid="([^"]+)"/g)].map(m=>m[1]))nodes.set('#'+id,{value:'',classList:{toggle(){},add(){},remove(){},contains(){return true;}},setAttribute(){},focus(){},querySelector(){return null;}});
+const complete={console,Intl,Date,Map,Set,JSON,Number,String,Array,Math,RegExp,Promise,crypto:{},setTimeout(){},clearTimeout(){},setInterval(){},localStorage:{getItem(){return null;}},matchMedia:()=>({matches:true}),window:{},
+ document:{querySelector:s=>nodes.get(s)||null,querySelectorAll:()=>[],addEventListener(){}},
+ CindyField:{view:()=>'',bind(){}},CindyClientPayment:{view:()=>'<aside id="client-payment-panel"></aside>',bind(){},hasDraft:()=>false},
+ CindyAnnual:{group},CindyCalm:{stop(){}},model};
+vm.createContext(complete);vm.runInContext(fs.readFileSync(require('node:path').join(__dirname,'../static/history.js'),'utf8'),complete);
+complete.CindyHistory=complete.window.CindyHistory;
+vm.runInContext(source.replace('start().catch(e=>toast(e.message));',''),complete);
+Object.assign(model,{receipts:[],messages:[],integrations:{},statement_sends:[]});
+vm.runInContext("S=model;selected=null;view='clients';render();",complete);
+assert(nodes.get('#content').innerHTML.includes('Clientas con deuda'));
+vm.runInContext("view='shopify-sales';render();",complete);
+assert.equal(nodes.get('#page-title').textContent,'Clientas');
+vm.runInContext("selected=1;render();",complete);
+assert(nodes.get('#content').innerHTML.includes('COMPRA #6437'));
+assert(nodes.get('#content').innerHTML.includes('id="client-payment-panel"'));
+console.log('Full app renders the unified directory, legacy navigation and client account without missing functions.');
+

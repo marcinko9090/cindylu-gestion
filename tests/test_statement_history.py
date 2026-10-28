@@ -2,7 +2,7 @@ import json
 import unittest
 import test_app as base
 import app as a
-from statements import snapshot,pdf
+from statements import snapshot,pdf,purchase_records
 
 class StatementHistoryTests(unittest.TestCase):
     def setUp(self):
@@ -42,5 +42,31 @@ class StatementHistoryTests(unittest.TestCase):
             _,after=a.statement_preview_data(c,self.cid)
             self.assertNotEqual(before['digest'],after['digest'])
             self.assertEqual(before['balance'],after['balance'])
+    def test_same_purchase_cards_include_closed_and_reference_products_only_once(self):
+        with a.db(True) as c:
+            items=json.dumps([{'title':'Sombra de prueba','quantity':2}])
+            oid=c.execute("INSERT INTO orders(client_id,number,purchased,total,base_paid,items,status,source,shopify_id,updated) VALUES(?,'#6441','2026-10-26',98490,0,?,'restructured','excel','gid/shop/6441',?)",(self.cid,items,a.now())).lastrowid
+            cfg=a.settings(c)['shopify_pending_orders'];cfg[0]['items']=[]
+            a.setval(c,'shopify_pending_orders',cfg)
+            paid=c.execute("INSERT INTO orders(client_id,number,purchased,total,base_paid,items,updated) VALUES(?,'#paid-detail','2026-10-01',10000,10000,?,?)",(self.cid,items,a.now())).lastrowid
+            c.execute("INSERT INTO orders(client_id,number,purchased,total,items,status,updated) VALUES(?,'#cancelled','2026-10-28',9999,?,'cancelled',?)",(self.cid,items,a.now()))
+            data=snapshot(c,self.cid,a.balance,'28/10/2026')
+            self.assertEqual([o['number'] for o in data['purchases']],['#6441','#paid-detail'])
+            self.assertEqual(data['purchases'][0]['items'][0]['title'],'Sombra de prueba')
+            self.assertEqual(data['balance'],90000)
+            _,before=a.statement_preview_data(c,self.cid)
+            c.execute('UPDATE orders SET items=? WHERE id=?',(json.dumps([{'title':'Sombra corregida','quantity':2}]),oid))
+            _,after=a.statement_preview_data(c,self.cid)
+            self.assertNotEqual(before['digest'],after['digest'])
+    def test_reference_cards_do_not_supply_other_order_or_cancelled_products(self):
+        local=[{'shopify_id':'gid/one','number':'#1','total':2000,'purchased':'2026-10-01','status':'restructured','source':'excel','items':[{'title':'Producto de prueba','quantity':1}]},
+               {'shopify_id':'gid/two','number':'#2','total':3000,'purchased':'2026-10-02','status':'cancelled','source':'shopify','items':[{'title':'Anulado','quantity':1}]}]
+        remote=[{'shopify_id':'gid/other','number':'#1','total':2000,'purchased':'2026-10-01','items':[]}]
+        cards=purchase_records(local,remote)
+        self.assertEqual(len(cards),2)
+        self.assertEqual(cards[0]['items'],[])
+        self.assertTrue(cards[1]['previous'])
+        self.assertNotIn('Anulado',str(cards))
 
 if __name__=='__main__':unittest.main()
+
