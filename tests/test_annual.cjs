@@ -40,7 +40,7 @@ const ledgerPayments=[
  {id:15,order_id:5,amount:10000,date:'2026-10-15',reversed:0}
 ];
 const model={clients:[{id:1,name:'Ana <Norte>'}],orders:ledgerOrders,payments:ledgerPayments,installments:[],today:'2026-10-27'};
-const ui={S:model,selected:1,clientSupportOpen:false,CindyAnnual:{group},money:n=>'$'+new Intl.NumberFormat('es-CL').format(n),day:s=>s,
+const ui={S:model,selected:1,clientSupportOpen:false,CindyClientPayment:{view:()=>'<aside id="client-payment-panel"></aside>'},CindyAnnual:{group},money:n=>'$'+new Intl.NumberFormat('es-CL').format(n),day:s=>s,
  esc:s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])),initials:()=> 'AN',chat:()=>'<div data-test-chat></div>',clientList:()=>'<div data-test-directory></div>'};
 vm.createContext(ui);
 vm.runInContext(fs.readFileSync(require('node:path').join(__dirname,'../static/history.js'),'utf8'),ui);
@@ -139,3 +139,14 @@ assert.equal(ui.balance(1),5000);assert(ui.shopifyPendingClient(1).includes('#64
 ui.workplaceFilter='colegio';assert(!ui.shopifyPendingView().includes('Perfume &lt;Rosa&gt; 100 ml'));
 console.log('Shopify pending products, Excel balances and multi-tag classification passed.');
 
+
+
+ui.workplaceFilter='';ui.selected=1;
+const reorganized=ui.detail();
+assert(reorganized.indexOf('client-personal-data')<reorganized.indexOf('client-purchase-details'));
+assert(reorganized.indexOf('client-purchase-details')<reorganized.indexOf('client-account-columns'));
+assert(reorganized.indexOf('client-account-columns')<reorganized.indexOf('client-annual-history'));
+assert(reorganized.includes('id="client-payment-panel"'));
+assert(ui.clientLedger(1,true).includes('Abonos realizados'));
+assert(!ui.clientLedger(1,true).includes('data-ledger-order='));
+console.log('Client file: personal details, products, dated abonos and inline side panel order passed.');

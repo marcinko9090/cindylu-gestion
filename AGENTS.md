@@ -36,3 +36,6 @@
 
 
 - Keep the client account visually simple: never show the “Saldo del corte CXC” panel or its explanatory text/button, and hide the Compras block and purchase-total row when there are no product purchases. Keep the actual balance, all abonos and stored records intact. Preserve “Ingresar abono” and “Registrar compra” in the client header.
+
+
+- Client file order: personal data first, purchase cards next (order number/client name, actual date/status, exact item quantities/titles and purchase total), then dated abonos with an inline new-abono panel beside them on desktop and below on mobile. Keep yearly history collapsed below. Use the existing payments API with idempotency, actual dates, selected local account/purchase and optional editable WhatsApp confirmation. Retain uncertain submissions for same-operation retries; never apply payments directly to unconfirmed Shopify snapshots.
