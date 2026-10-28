@@ -25,3 +25,6 @@
 
 
 - The Clientas directory defaults to clients whose active balance is greater than zero. Keep clients with no debt in a separate “Clientas sin deuda” section, preserving workplace/name filters, all records and access to their history. Use “Abonos realizados” for the payment section and CXC payment rows without an order number; retain dates, amounts and the distinction between actual payments and last-payment references.
+
+
+- Use the historical heading “Total comprado por año · TIENDA CINDY LÚ”. Show a brief, gentle encouragement once per Chile calendar day on entry to the authenticated workspace, for three seconds. Show similarly brief floating notes after each 30 minutes of visible activity; exclude idle/background time, avoid open dialogs and stacked overlays, and fade out gently. Keep messages local, beige/gold, non-blocking and free of diagnostic labels or pressure. Respect reduced motion, stop on logout, and never include these notes in client-facing outputs.

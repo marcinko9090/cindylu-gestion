@@ -84,7 +84,7 @@ function runtime(season,{brokenLogo=false,waitingLogo=false,reduced=false}={}){
  const entry=app.slice(app.indexOf('let firstSessionCheck=true;'),app.indexOf("$('#login-form').onsubmit"));
  async function sessionFlow(authenticated){
   let session={authenticated},welcomes=0,authScreens=0,refreshes=0;
-  const ctx={api:async()=>session,CindySeasons:{apply(){},welcome(){assert(refreshes>0);welcomes++;}},$:()=>({pause(){},classList:{add(){},remove(){}}}),refresh:async()=>{refreshes++;},showAuth(){authScreens++;},S:{demo:false},csrf:''};
+  const ctx={api:async()=>session,CindyCalm:{start(){}},CindySeasons:{apply(){},welcome(){assert(refreshes>0);welcomes++;}},$:()=>({pause(){},classList:{add(){},remove(){}}}),refresh:async()=>{refreshes++;},showAuth(){authScreens++;},S:{demo:false},csrf:''};
   vm.runInNewContext(entry,ctx);await ctx.start();
   const first=welcomes;
   session={authenticated:true};await ctx.start();
@@ -99,3 +99,4 @@ function runtime(season,{brokenLogo=false,waitingLogo=false,reduced=false}={}){
  assert(css.includes('#panel-welcome,#season-banner'));
  console.log('Returning-session welcome: all festivities, one-time entry, nested events, fallback, logo failures, reduced motion and fade endpoints passed.');
 })().catch(error=>{console.error(error);process.exitCode=1;});
+
