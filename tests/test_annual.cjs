@@ -95,10 +95,31 @@ assert.equal(yearly[1].months.size,2);
 assert.equal(yearly.reduce((s,y)=>s+y.total,0),5700);
 assert(historyHtml.includes('$2.000'));assert(historyHtml.includes('2 × Labial &lt;Rosa&gt; 5 ml'));assert(historyHtml.includes('2024-02'));assert(historyHtml.includes('no genera deuda'));
 const cutHtml=ui.clientLedger(1);
-assert(cutHtml.includes('Saldo del corte CXC'));assert(cutHtml.includes('Sin pedido indicado en CXC'));
+assert(cutHtml.includes('Saldo del corte CXC'));assert(cutHtml.includes('Abonos realizados'));assert(!cutHtml.includes('Sin pedido indicado en CXC'));
 assert(!cutHtml.includes('data-ledger-order="6"')); // A cut is not presented as a product purchase.
 assert.equal((cutHtml.match(/data-ledger-payment="17"/g)||[]).length,1);
 assert.equal(ui.CindyHistory.payments(model,1).length,1);
 assert(cutHtml.includes('ya considerado en el corte, no se descuenta otra vez'));
 console.log('Settled monthly history, exact product details, CXC cut separation, payment references and month-only year grouping passed.');
 
+
+
+// Directory membership follows the current active debt, not settled CLUB history.
+ui.norm=s=>String(s||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase();
+ui.clientQuery='';ui.workplaceFilter='';ui.clientDebtView='debt';
+vm.runInContext(source.slice(source.indexOf('function clientDirectory('),source.indexOf('function overview(')),ui);
+model.clients=[{id:1,name:'Ana',workplace:'Hospital'},{id:2,name:'Bea',workplace:'Hospital'},
+ {id:3,name:'Celia',workplace:'Colegio'},{id:4,name:'Dora',workplace:'Hospital'}];
+model.orders=[makeOrder(101,1,10000,0,5000,'2026-10'),makeOrder(102,2,10000,0,0,'2026-10'),
+ makeOrder(104,4,5000,0,5000,'2026-10','restructured')];
+model.purchase_history=[{client_id:3,amount:900000,period:'2025-01'}];
+assert.equal(ui.clientDirectory().clients.map(c=>c.id).join(','),'1');
+ui.clientDebtView='no-debt';
+assert.equal(ui.clientDirectory().clients.map(c=>c.id).sort().join(','),'2,3,4');
+const directoryHtml=ui.clientList();assert(directoryHtml.includes('Clientas sin deuda'));assert(!directoryHtml.includes('data-client="1"'));
+ui.workplaceFilter='hospital';assert.equal(ui.clientDirectory().clients.map(c=>c.id).sort().join(','),'2,4');
+ui.clientQuery='Dora';assert.equal(ui.clientDirectory().clients.map(c=>c.id).join(','),'4');
+ui.workplaceFilter='';ui.clientQuery='';model.orders[0].balance=0;
+ui.clientDebtView='debt';assert.equal(ui.clientDirectory().clients.length,0);
+ui.clientDebtView='no-debt';assert.equal(ui.clientDirectory().clients.length,4);
+console.log('Debt directory: unpaid CXC, paid CXC, CLUB-only clients, archived purchases, filters and settled balance passed.');
