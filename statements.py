@@ -11,6 +11,21 @@ from reportlab.lib.pagesizes import A4
 
 LOGO=Path(__file__).resolve().parent/'static'/'logo.png'
 
+
+def payment_display_history(history,purchases):
+    """Display filter only: never recalculate balances or change stored payments."""
+    def day(value):
+        text=str(value or '')
+        try:
+            if 'T' in text:
+                return dt.datetime.fromisoformat(text.replace('Z','+00:00')).astimezone(ZoneInfo('America/Santiago')).date().isoformat()
+            return dt.date.fromisoformat(text).isoformat()
+        except (ValueError,TypeError):
+            return ''
+    dates=[day(o.get('purchased')) for o in purchases]
+    cutoff=min((d for d in dates if d),default='')
+    return [p for p in history if not cutoff or not day(p.get('date')) or day(p.get('date'))>=cutoff]
+
 def purchase_records(stored,remote):
     """The same display-only purchases as the client file, with no debt calculation."""
     def number(o):return str(o.get('number') or '').strip().lstrip('#')
@@ -63,7 +78,7 @@ def snapshot(c,cid,balance,issued):
     for r in c.execute("SELECT base_paid,number,source FROM orders WHERE client_id=? AND status='active' AND base_paid>0",(cid,)):
         history.append({'date':'','amount':r['base_paid'],'kind':'prior','method':'','number':r['number'] if r['source']!='cxc' else 'Abonos realizados'})
     history.sort(key=lambda r:(r['date'] or '9999',r['amount'],r['kind']))
-    return dict(client=dict(cl),orders=orders,shopify_orders=shopify_orders,purchases=purchases,payment_history=history,issued=issued,total=sum(o['total'] for o in orders),paid=sum(o['total']-o['balance'] for o in orders),balance=sum(o['balance'] for o in orders))
+    return dict(client=dict(cl),orders=orders,shopify_orders=shopify_orders,purchases=purchases,payment_history=payment_display_history(history,purchases),issued=issued,total=sum(o['total'] for o in orders),paid=sum(o['total']-o['balance'] for o in orders),balance=sum(o['balance'] for o in orders))
 
 def pdf(data):
     buf=io.BytesIO();styles=getSampleStyleSheet()
@@ -123,6 +138,7 @@ def pdf(data):
     if not purchases:story += [p('Compras','Gold'),p('Todavía no hay productos vinculados a esta ficha.','Muted'),Spacer(1,12)]
     history=data.get('payment_history')
     if history is None:history=[dict(x,number=o['number']) for o in data.get('orders',[]) for x in o.get('payments',[])]
+    history=payment_display_history(history,purchases)
     heading=p('Abonos realizados','Gold')
     if history:
         rows=[['Fecha de pago','Compra','Monto']]

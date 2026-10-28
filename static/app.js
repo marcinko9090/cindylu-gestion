@@ -23,10 +23,21 @@ function chat(cid){const cl=S.clients.find(c=>c.id===cid),ms=S.messages.filter(m
 function ledgerProducts(order){return order.items?.length?`<ul class="ledger-products">${order.items.map(item=>`<li><span>${esc(item.quantity??1)} ×</span> ${esc(item.title||'Detalle no informado')}</li>`).join('')}</ul>`:'<p class="subtle">Detalle de productos no informado.</p>';}
 function ledgerOrderRow(order,archived=false){return `<li class="ledger-purchase" data-ledger-order="${order.id}"><div class="ledger-purchase-date"><time>${day(order.purchased)}</time><small>${esc(order.number)}</small>${archived?(order.status==='restructured'?'':'<span class="pill">Anulada</span>'):order.review?'<span class="pill warm">Por revisar</span>':''}</div><div class="ledger-purchase-products">${ledgerProducts(order)}</div><div class="ledger-purchase-total"><small>Total de la compra</small><strong>${money(order.total)}</strong></div><details class="ledger-order-actions"><summary>Opciones</summary><div>${!archived&&order.balance>0&&!order.review?`<button class="primary" data-action="pay" data-id="${order.id}">Ingresar abono</button>`:''}<button class="text-button" data-action="edit-order-items" data-id="${order.id}">Editar productos</button><button class="text-button" data-action="adjust" data-id="${order.id}">Ajustar compra</button></div></details></li>`;}
 function ledgerPaymentRow(payment,order,archived=false){return `<tr ${payment.id?'data-ledger-payment="'+payment.id+'"':''}><td>${payment.date?day(payment.date):'<span class="subtle">Sin fecha registrada</span>'}</td><td>${esc(payment.imported||order?.source==='cxc'?'Abonos realizados':order?.number||'Compra')}${payment.previous?'<small>Pago previo al registro</small>':''}${archived?`<small>${payment.reversed?'Abono anulado':order?.status==='restructured'?'Registro previo a reestructuración':'Compra anulada'}</small>`:''}</td><td class="ledger-payment-amount">${money(payment.amount)}</td><td>${payment.id&&!payment.reversed?`<button class="text-button danger" data-action="reverse" data-id="${payment.id}">Anular</button>`:''}</td></tr>`;}
+function ledgerDateKey(value){
+ const text=String(value||'');
+ if(/^\d{4}-\d{2}-\d{2}$/.test(text))return text;
+ if(!text.includes('T'))return '';
+ const date=new Date(text);if(Number.isNaN(date.valueOf()))return '';
+ const parts=new Intl.DateTimeFormat('en',{year:'numeric',month:'2-digit',day:'2-digit',timeZone:'America/Santiago'}).formatToParts(date);
+ return ['year','month','day'].map(k=>parts.find(p=>p.type===k).value).join('-');
+}
 function clientLedger(cid,compact=false){
  const accountOrders=active(cid).filter(o=>o.source==='cxc'),purchases=active(cid).filter(o=>o.source!=='cxc').slice().sort((a,b)=>String(a.purchased).localeCompare(String(b.purchased))||a.id-b.id),ids=new Set([...purchases,...accountOrders].map(o=>o.id));
  const all=orders(cid),allIds=new Set(all.map(o=>o.id)),lookup=new Map(all.map(o=>[o.id,o]));
- const payments=[...S.payments.filter(p=>ids.has(p.order_id)&&!p.reversed),...CindyHistory.payments(S,cid)].sort((a,b)=>String(a.date||'9999').localeCompare(String(b.date||'9999'))||(a.id||0)-(b.id||0));
+ const allPayments=[...S.payments.filter(p=>ids.has(p.order_id)&&!p.reversed),...CindyHistory.payments(S,cid)].sort((a,b)=>String(a.date||'9999').localeCompare(String(b.date||'9999'))||(a.id||0)-(b.id||0));
+ const firstPurchase=clientPurchaseRecords(cid).map(o=>ledgerDateKey(o.purchased)).filter(Boolean).sort()[0]||'';
+ const earlierPayments=allPayments.filter(p=>firstPurchase&&ledgerDateKey(p.date)&&ledgerDateKey(p.date)<firstPurchase);
+ const payments=allPayments.filter(p=>!earlierPayments.includes(p));
  const previous=[...purchases,...accountOrders].filter(o=>o.base_paid>0).map(o=>({order_id:o.id,amount:o.base_paid,previous:true}));
  const archivedOrders=all.filter(o=>o.status!=='active').sort((a,b)=>String(a.purchased).localeCompare(String(b.purchased))||a.id-b.id);
  const archivedPayments=S.payments.filter(p=>allIds.has(p.order_id)&&(p.reversed||!ids.has(p.order_id))).sort((a,b)=>String(a.date).localeCompare(String(b.date))||a.id-b.id);
@@ -34,6 +45,7 @@ function clientLedger(cid,compact=false){
  return `<section class="card client-ledger" aria-label="Cuenta de la clienta">${!compact&&purchases.length?`<div class="card-head"><h3>Compras</h3></div><ul class="ledger-purchases">${purchases.map(o=>ledgerOrderRow(o)).join('')}</ul>`:''}
 
   <section class="ledger-payments"><h3>Abonos realizados</h3>${payments.length||previous.length?`<div class="table-scroll"><table><thead><tr><th>Fecha de pago</th><th>Compra</th><th>Monto</th><th><span class="sr-only">Acciones</span></th></tr></thead><tbody>${payments.map(p=>ledgerPaymentRow(p,lookup.get(p.order_id))).join('')}${previous.map(p=>ledgerPaymentRow(p,lookup.get(p.order_id))).join('')}</tbody></table></div>`:'<p class="subtle ledger-empty">Todavía no hay pagos registrados.</p>'}</section>
+  ${earlierPayments.length?`<details class="ledger-archive"><summary>Abonos anteriores a las compras mostradas</summary><div class="table-scroll"><table><thead><tr><th>Fecha de pago</th><th>Compra</th><th>Monto</th><th>Acciones</th></tr></thead><tbody>${earlierPayments.map(p=>ledgerPaymentRow(p,lookup.get(p.order_id))).join('')}</tbody></table></div></details>`:''}
   <div class="ledger-account-total"><div class="total-row final ledger-current-balance"><span>Saldo vigente</span><strong>${money(t.balance)}</strong></div></div>
   ${archivedOrders.length||archivedPayments.length?`<details class="ledger-archive"><summary>Registros anteriores y anulados</summary>${archivedOrders.length?`<h4>Compras anteriores o anuladas</h4><ul class="ledger-purchases">${archivedOrders.map(o=>ledgerOrderRow(o,true)).join('')}</ul>`:''}${archivedPayments.length?`<h4>Pagos de registros anteriores o anulados</h4><div class="table-scroll"><table><thead><tr><th>Fecha de pago</th><th>Compra</th><th>Monto</th><th><span class="sr-only">Acciones</span></th></tr></thead><tbody>${archivedPayments.map(p=>ledgerPaymentRow(p,lookup.get(p.order_id),true)).join('')}</tbody></table></div>`:''}</details>`:''}
  </section>`;

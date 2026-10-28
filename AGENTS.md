@@ -65,3 +65,5 @@
 - Always show the custom gold login presentation on a fresh page load or restored browser-history page, even with a valid saved session. Require an explicit login submit before fetching/displaying business data. Remember only the email locally; let the browser password manager fill the password through username/current-password autocomplete, never persist plaintext passwords in app storage. Keep the full presentation/glitter and five-second motivational notes after entry.
 
 - Intro particles explode outward from the center, with soft gold brilliance, independent of text animation and data refresh. Preserve the beige/gold palette and full login functionality.
+
+- In client fichas and PDFs, hide dated abonos earlier than the earliest displayed purchase (Chile date). Keep them in collapsed ficha history, preserve unknown-date payments and all payments when no dated purchase is shown. This is a display filter only: never delete records, assign payments to orders by date, or recalculate balances.
