@@ -1,4 +1,4 @@
-/* Original synthesized crystal chime. No recording or old video soundtrack. */
+/* Warm original major-key melody, without bells or metallic overtones. */
 (function(){
  'use strict';
  const scene=document.querySelector('.intro-scene'),burst=document.querySelector('.intro-burst');
@@ -22,16 +22,26 @@
    await audio.resume();
    if(ticket!==generation||!enabled||!visible())return;
    const now=audio.currentTime+.03;
-   [783.99,1046.5,1318.51,1567.98].forEach((frequency,i)=>{
-    const start=now+i*.16;
-    [1,2.003].forEach((ratio,j)=>{
+   // A warm, lightly plucked major melody with a soft accompanying chord.
+   const notes=[
+    [261.63,0,.75,.026],[329.63,0,.75,.018],[392,0,.75,.016],
+    [523.25,.08,.48,.045],[659.25,.36,.48,.043],[783.99,.64,.62,.040],
+    [659.25,1.08,.44,.040],[698.46,1.36,.44,.038],[783.99,1.64,.56,.040],
+    [349.23,1.36,.8,.020],[440,1.36,.8,.015],
+    [659.25,2.12,.45,.040],[587.33,2.40,.45,.037],
+    [523.25,2.72,1.25,.043],[261.63,2.72,1.25,.025],[329.63,2.72,1.25,.018],[392,2.72,1.25,.016]
+   ];
+   notes.forEach(([frequency,offset,length,volume])=>{
+    const start=now+offset;
+    // Low integer harmonics give a rounded keyboard tone, not a bell.
+    [1,2,3].forEach((ratio,j)=>{
      const oscillator=audio.createOscillator(),gain=audio.createGain();
      oscillator.type='sine';oscillator.frequency.value=frequency*ratio;
      gain.gain.setValueAtTime(0,start);
-     gain.gain.linearRampToValueAtTime(j?.009:.035,start+.018);
-     gain.gain.exponentialRampToValueAtTime(.0001,start+2.5);
+     gain.gain.linearRampToValueAtTime(volume*[1,.16,.04][j],start+.028);
+     gain.gain.exponentialRampToValueAtTime(.0001,start+length);
      oscillator.connect(gain);gain.connect(audio.destination);
-     oscillator.start(start);oscillator.stop(start+2.6);
+     oscillator.start(start);oscillator.stop(start+length+.04);
      oscillator.onended=()=>{oscillator.disconnect();gain.disconnect();};
     });
    });
