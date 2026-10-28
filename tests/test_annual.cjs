@@ -97,7 +97,8 @@ assert.equal(yearly.reduce((s,y)=>s+y.total,0),5700);
 assert(historyHtml.includes('$2.000'));assert(historyHtml.includes('2 × Labial &lt;Rosa&gt; 5 ml'));assert(historyHtml.includes('2024-02'));assert(historyHtml.includes('no genera deuda'));
 const cutHtml=ui.clientLedger(1);
 assert(!cutHtml.includes('Saldo del corte CXC'));assert(!cutHtml.includes('El archivo informa una deuda por clienta.'));assert(cutHtml.includes('Abonos realizados'));assert(!cutHtml.includes('Sin pedido indicado en CXC'));
-assert(!cutHtml.includes('data-ledger-order="6"')); // A cut is not presented as a product purchase.
+assert(!cutHtml.includes('data-ledger-order="6"'));
+assert(!ui.ledgerPaymentRow({amount:500,date:'2026-10-10'},{source:'cxc',number:'CXC-2026-10-1'}).includes('CXC-2026-10-1')); // A cut is not presented as a product purchase.
 assert.equal((cutHtml.match(/data-ledger-payment="17"/g)||[]).length,1);
 assert.equal(ui.CindyHistory.payments(model,1).length,1);
 assert(!cutHtml.includes('ya considerado en el corte, no se descuenta otra vez'));assert(!cutHtml.includes('Último abono indicado en CXC'));assert(!cutHtml.includes('Reemplazada por corte CXC'));
