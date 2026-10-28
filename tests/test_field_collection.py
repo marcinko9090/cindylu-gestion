@@ -66,3 +66,60 @@ class FieldCollectionTests(unittest.TestCase):
     def test_field_ui_workflow(self):
         result=subprocess.run(['node',str(ROOT/'tests/test_field.cjs')],capture_output=True,text=True,timeout=30)
         self.assertEqual(result.returncode,0,result.stdout+'\n'+result.stderr)
+
+    def test_custom_confirmation_has_purchase_and_actual_post_payment_balances(self):
+        text='Hola {nombre}, recibimos {monto} para la compra {compra}. Saldo compra: {saldo_compra}. Saldo total: {saldo_total}. Fecha: {fecha}.'
+        first=self.post(notify=True,notice_template=text)
+        self.assertEqual(first.status_code,200)
+        notice=first.json['notice']
+        self.assertEqual(notice['status'],'demo')
+        self.assertEqual(notice['body'],'Hola Ana Norte, recibimos $5.000 para la compra #12. Saldo compra: $5.000. Saldo total: $25.000. Fecha: 2026-10-28.')
+        # An ambiguous response retry must not alter the already queued text or create another send.
+        again=self.post(notify=True,notice_template='Texto distinto {compra}')
+        self.assertEqual(again.json['notice'],notice)
+        with self.a.db() as c:
+            self.assertEqual(c.execute('SELECT COUNT(*) FROM payments').fetchone()[0],1)
+            self.assertEqual(c.execute('SELECT COUNT(*) FROM payment_notices').fetchone()[0],1)
+        self.assertEqual(self.balances(),[20000,5000,7000])
+    def test_opt_out_overrides_global_default_and_does_not_queue_on_retry(self):
+        with self.a.db(True) as c:self.a.setval(c,'payment_notify',True)
+        try:
+            first=self.post(notify=False,notice_template='Un mensaje personal')
+            self.assertIsNone(first.json['notice'])
+            again=self.post(notify=True,notice_template='Intento distinto')
+            self.assertIsNone(again.json['notice'])
+            with self.a.db() as c:self.assertEqual(c.execute('SELECT COUNT(*) FROM payment_notices').fetchone()[0],0)
+        finally:
+            with self.a.db(True) as c:self.a.setval(c,'payment_notify',False)
+    def test_invalid_custom_message_rolls_back_payment_and_can_be_corrected(self):
+        for text in ['', '   ', 'a'*1001,42,{'body':'texto'}]:
+            with self.subTest(text_type=type(text).__name__):
+                response=self.post(notify=True,notice_template=text)
+                self.assertEqual(response.status_code,400)
+                self.assertEqual(self.balances(),[20000,10000,7000])
+                with self.a.db() as c:
+                    self.assertEqual(c.execute('SELECT COUNT(*) FROM payments').fetchone()[0],0)
+                    self.assertEqual(c.execute('SELECT COUNT(*) FROM payment_notices').fetchone()[0],0)
+        self.assertEqual(self.post(notify=True,notice_template='Abono de {monto} para {compra}. Saldo {saldo_compra}.').status_code,200)
+    def test_custom_text_is_rendered_once_without_expanding_client_content(self):
+        with self.a.db(True) as c:c.execute("UPDATE clients SET name='Ana {monto}' WHERE id=?",(self.cid,))
+        response=self.post(notify=True,notice_template='Hola {nombre}, tu abono es {monto} en {compra}.')
+        self.assertEqual(response.json['notice']['body'],'Hola Ana {monto}, tu abono es $5.000 en #12.')
+    def test_worker_sends_exact_custom_confirmation_to_selected_client_only_once(self):
+        a=self.a
+        with a.db(True) as c:
+            c.execute("UPDATE clients SET phone='56911111111',consent=1 WHERE id=?",(self.cid,))
+            c.execute("INSERT INTO messages(client_id,direction,body,wa_id,status,created) VALUES(?,'in','Hola','test-in','received',?)",(self.cid,a.now()))
+            a.setval(c,'sending',True)
+        with patch.object(a,'DEMO',False),patch.dict(os.environ,{'WA_ACCESS_TOKEN':'test-only','WA_PHONE_NUMBER_ID':'test-only'}),patch.object(a,'graph',return_value={'messages':[{'id':'test-out'}]}) as graph:
+            response=self.post(notify=True,notice_template='Gracias {nombre}. Abono {monto} en {compra}; saldo {saldo_compra}.')
+            self.assertEqual(response.json['notice']['status'],'pending')
+            a.process_payment_notices();a.process_payment_notices()
+            self.assertEqual(graph.call_count,1)
+            payload=graph.call_args.args[1]
+            self.assertEqual(payload['to'],'56911111111')
+            self.assertEqual(payload['text']['body'],'Gracias Ana Norte. Abono $5.000 en #12; saldo $5.000.')
+            duplicate=self.post(notify=True,notice_template='Cambió el texto')
+            self.assertEqual(duplicate.json['notice']['status'],'sent')
+            self.assertEqual(graph.call_count,1)
+        self.assertEqual(self.balances(),[20000,5000,7000])
