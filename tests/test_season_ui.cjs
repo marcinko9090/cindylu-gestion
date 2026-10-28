@@ -3,7 +3,7 @@ const source=fs.readFileSync(require('node:path').join(__dirname,'../static/seas
 const config={key:'halloween',event_key:'halloween',label:'Halloween',greeting:'Un toque de magia dorada',countdown:'4 días para Halloween',active:true,year:2026,variant:2,seed:64000,date:'2026-10-27',calendar:[{label:'Halloween',starts:'2026-10-21',date:'2026-10-31'}]};
 const nodes=new Map(),handlers={};
 const node=()=>({dataset:{},textContent:'',innerHTML:'',classList:{toggle(){},contains(){return false}},addEventListener(name,fn){handlers[name]=fn;},pause(){},play(){return Promise.resolve();}});
-for(const selector of ['#season-banner','.season-banner-title','.season-banner-greeting','.season-banner-motif','.welcome-season-greeting','#season-ornaments','.welcome-glitter','#welcome-video','.auth-film','#auth'])nodes.set(selector,node());
+for(const selector of ['#banner-garland','#header-garland','#season-banner','.season-banner-title','.season-banner-greeting','.season-banner-motif','.welcome-season-greeting','#season-ornaments','.welcome-glitter','#welcome-video','.auth-film','#auth'])nodes.set(selector,node());
 const badge=node();
 const document={body:{dataset:{seasonConfig:JSON.stringify(config)}},hidden:false,querySelector:s=>nodes.get(s)||null,querySelectorAll:()=>[badge],addEventListener(){}};
 const context={window:{},document,matchMedia:()=>({matches:false}),setInterval(){},setTimeout(){},Intl,Date,fetch(){throw Error('Unexpected fetch');}};
@@ -12,8 +12,10 @@ assert.equal(document.body.dataset.season,'halloween');assert.equal(badge.textCo
 assert(nodes.get('.welcome-glitter').innerHTML.includes('animation')===false);
 assert(nodes.get('.welcome-glitter').innerHTML.includes('--duration:'));
 const original=nodes.get('.welcome-glitter').innerHTML;
+const garland=nodes.get('#header-garland').innerHTML;assert(garland.includes('header-garland-wire'));assert(garland.includes('data-motif="pumpkin"'));assert(garland.includes('data-motif="bat"'));
+assert.equal((garland.match(/class="header-garland-hanger"/g)||[]).length,9);
 context.window.CindySeasons.apply({...config,countdown:'3 días para Halloween'});
-assert.equal(nodes.get('.welcome-glitter').innerHTML,original); // Updating a countdown must not restart particles.
+assert.equal(nodes.get('.welcome-glitter').innerHTML,original);assert.equal(nodes.get('#header-garland').innerHTML,garland); // Updating a countdown must not restart particles.
 context.window.CindySeasons.apply({...config,year:2027,variant:3,seed:64031});
 assert.notEqual(nodes.get('.welcome-glitter').innerHTML,original);
 nodes.get('#welcome-video').currentTime=3;handlers.timeupdate();
@@ -29,6 +31,7 @@ assert(!source.includes('statement-preview'));
 assert(!source.includes('explain-text'));
 context.window.CindySeasons.apply({...config,key:'base',active:false});
 assert.equal(document.body.dataset.season,'base');
+assert(nodes.get('#header-garland').innerHTML.includes('data-motif="star"'));assert(nodes.get('#header-garland').innerHTML.includes('data-motif="moon"'));assert(!nodes.get('#header-garland').innerHTML.includes('data-motif="pumpkin"'));
 assert.equal(nodes.get('#season-ornaments').innerHTML,'');
 context.window.CindySeasons.apply(config);
 assert.equal(document.body.dataset.season,'halloween');
@@ -47,7 +50,7 @@ function runtime(season,{brokenLogo=false,waitingLogo=false,reduced=false}={}){
    classList:{add:c=>classes.add(c),remove:c=>classes.delete(c),contains:c=>classes.has(c),toggle(c,force){if(force)classes.add(c);else classes.delete(c);}},
    addEventListener:(name,fn)=>events.set(name,fn),removeEventListener:name=>events.delete(name),pause(){},play:()=>Promise.resolve()};
  }
- for(const selector of ['#shell','#panel-welcome','#panel-welcome-logo','.panel-welcome-motifs','.panel-welcome-glitter','.panel-welcome-greeting','#season-banner','.season-banner-title','.season-banner-greeting','.season-banner-motif','.welcome-season-greeting','#season-ornaments','.welcome-glitter'])map.set(selector,element());
+ for(const selector of ['#header-garland','#shell','#panel-welcome','#panel-welcome-logo','.panel-welcome-motifs','.panel-welcome-glitter','.panel-welcome-greeting','#season-banner','.season-banner-title','.season-banner-greeting','.season-banner-motif','.welcome-season-greeting','#season-ornaments','.welcome-glitter'])map.set(selector,element());
  map.get('#panel-welcome').classList.add('hidden');
  if(waitingLogo)map.get('#panel-welcome-logo').complete=false;
  const doc={body:{dataset:{seasonConfig:JSON.stringify(season)}},hidden:false,querySelector:s=>map.get(s)||null,querySelectorAll:()=>[],addEventListener(){}};
@@ -65,6 +68,7 @@ function runtime(season,{brokenLogo=false,waitingLogo=false,reduced=false}={}){
   assert.equal(r.map.get('.panel-welcome-glitter').innerHTML.match(/<i /g).length,32);
   const primary=decodeURIComponent(r.map.get('#shell').styles.get('--season-primary'));
   assert(primary.includes('data-motif="'+motifs[0]+'"'));assert(primary.includes('#9b7838'));
+  for(const motif of motifs)assert(r.map.get('#header-garland').innerHTML.includes('data-motif="'+motif+'"'));
   const originalMarks=marks.innerHTML;
   await r.api.welcome();assert.equal(marks.innerHTML,originalMarks);
   const ended=overlay.events.get('animationend');
@@ -99,4 +103,5 @@ function runtime(season,{brokenLogo=false,waitingLogo=false,reduced=false}={}){
  assert(css.includes('#panel-welcome,#season-banner'));
  console.log('Returning-session welcome: all festivities, one-time entry, nested events, fallback, logo failures, reduced motion and fade endpoints passed.');
 })().catch(error=>{console.error(error);process.exitCode=1;});
+
 

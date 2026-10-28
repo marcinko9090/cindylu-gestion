@@ -39,3 +39,6 @@
 
 
 - Client file order: personal data first, purchase cards next (order number/client name, actual date/status, exact item quantities/titles and purchase total), then dated abonos with an inline new-abono panel beside them on desktop and below on mobile. Keep yearly history collapsed below. Use the existing payments API with idempotency, actual dates, selected local account/purchase and optional editable WhatsApp confirmation. Retain uncertain submissions for same-operation retries; never apply payments directly to unconfirmed Shopify snapshots.
+
+
+- Decorate the upper page-heading band with restrained gold garlands. Use recognizable motifs from the currently active celebration; outside celebration windows use gold stars and moons. Keep ornaments above the heading and away from search/buttons, non-interactive and hidden from assistive technology and print. Retain annual variation, stable animation on refresh, beige/gold colors and reduced-motion support.

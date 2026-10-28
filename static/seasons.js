@@ -26,6 +26,15 @@
  function svg(name){return '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" data-motif="'+name+'" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'+(shapes[name]||shapes.star)+'</svg>';}
  function iconUrl(name){return 'url("data:image/svg+xml,'+encodeURIComponent(svg(name).replaceAll('currentColor','#9b7838'))+'")';}
  function random(seed){let n=seed||1;return ()=>{n=(n*16807)%2147483647;return (n-1)/2147483646;};}
+ function garlandMarkup(config,motifs,id='header-gold-wire',count=9){
+  const names=config.active?motifs:['star','moon'],rng=random(config.seed+523);
+  const wire='<svg class="header-garland-wire" viewBox="0 0 1200 60" preserveAspectRatio="none" aria-hidden="true"><defs><linearGradient id="header-gold-wire"><stop stop-color="#9b7130"/><stop offset=".27" stop-color="#e5c97b"/><stop offset=".53" stop-color="#aa7d2d"/><stop offset=".78" stop-color="#e1c16a"/><stop offset="1" stop-color="#a07730"/></linearGradient></defs><path d="M0 8Q120 44 240 8Q360 44 480 8Q600 44 720 8Q840 44 960 8Q1080 44 1200 8" fill="none" stroke="url(#header-gold-wire)" stroke-width="1.7"/><path d="M0 11Q120 47 240 11Q360 47 480 11Q600 47 720 11Q840 47 960 11Q1080 47 1200 11" fill="none" stroke="#d8bd7f" stroke-opacity=".42" stroke-width=".65"/></svg>';
+  return (wire+Array.from({length:count},(_,i)=>{
+   const x=count===9?5.5+i*11.125:8+i*21;const t=((x/100*1200)%240)/240,y=8+72*t*(1-t);
+   const size=26+Math.round(rng()*7),drop=6+Math.round(rng()*6),tilt=-3+rng()*6;
+   return '<span class="header-garland-hanger" style="--x:'+x+'%;--y:'+y+'px;--charm-size:'+size+'px;--drop:'+drop+'px;--tilt:'+tilt+'deg;--delay:'+(-rng()*14)+'s"><span class="header-garland-thread"></span><span class="header-garland-charm">'+svg(names[(i+config.variant)%names.length])+'</span></span>';
+  }).join('')).replaceAll('header-gold-wire',id);
+ }
  let current=null,signature='';
  function apply(config){
   if(!config)return;
@@ -37,6 +46,8 @@
   if(signature===nextSignature)return;
   signature=nextSignature;
   const rng=random(config.seed),motifs=palettes[config.key]||palettes.base;
+  const garland=$('#header-garland');if(garland)garland.innerHTML=garlandMarkup(config,motifs);
+  const bannerGarland=$('#banner-garland');if(bannerGarland)bannerGarland.innerHTML=garlandMarkup(config,motifs,'banner-gold-wire',5);
   const shell=$('#shell');
   if(shell){
    shell.style.setProperty('--season-primary',iconUrl(motifs[0]));
@@ -97,4 +108,5 @@
   try{const response=await fetch('/api/session');if(response.ok){const data=await response.json();apply(data.season);}}catch{}
  },60000);
 })();
+
 

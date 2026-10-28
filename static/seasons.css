@@ -83,3 +83,27 @@ body[data-season-variant="1"] .season-banner{border-radius:4px 18px 4px 18px}bod
 @media(max-width:600px){.calm-message{right:16px;left:16px;margin:auto;font-size:14px;}}
 @media(prefers-reduced-motion:reduce){.calm-message{animation:cindy-calm-still 3s linear both;}}
 @keyframes cindy-calm-still{0%,100%{opacity:0}10%,85%{opacity:1}}
+
+
+/* Gold garlands follow the active celebration; quiet days use stars and moons. */
+#shell .page-head{position:relative;padding-top:88px}
+.header-garland{position:absolute;inset:0 0 auto;height:74px;pointer-events:none;user-select:none;overflow:hidden;color:#b48a37;z-index:0;background:radial-gradient(ellipse at 50% 0,#ead7a12e,transparent 72%)}
+.header-garland-wire{position:absolute;inset:0 0 auto;width:100%;height:60px;overflow:visible;filter:drop-shadow(0 1px 1px #a0782420)}
+.header-garland-hanger{position:absolute;left:var(--x);top:var(--y);display:flex;flex-direction:column;align-items:center;transform:translateX(-50%);transform-origin:50% 0;animation:cindy-garland-sway 14s var(--delay) ease-in-out infinite alternate}
+.header-garland-thread{display:block;width:1px;height:var(--drop);background:linear-gradient(#ae8034,#e8cf8e,#b1873a);opacity:.85}
+.header-garland-charm{position:relative;display:block;width:var(--charm-size);height:var(--charm-size);color:#b28736;filter:drop-shadow(0 1px 0 #fff9e4) drop-shadow(0 2px 3px #ac84352b)}
+.header-garland-charm:before{content:"";position:absolute;left:calc(50% - 2px);top:-3px;width:4px;height:4px;border:1px solid #c5a35a;border-radius:50%}
+.header-garland-charm svg{display:block;width:100%;height:100%;stroke-width:1.8}
+.header-garland-hanger:nth-of-type(3n) .header-garland-charm{color:#997027}
+.header-garland-hanger:nth-of-type(3n+1) .header-garland-charm:after{content:"✧";position:absolute;right:-7px;top:3px;font-size:10px;color:#c6a24c;text-shadow:0 0 4px #ecd69e}
+@keyframes cindy-garland-sway{from{transform:translateX(-50%) rotate(var(--tilt))}to{transform:translateX(-50%) rotate(1deg)}}
+@media(max-width:680px){#shell .page-head{padding-top:76px}.header-garland{height:65px}.header-garland-hanger:nth-of-type(3n+2){display:none}.header-garland-charm{width:25px;height:25px}}
+@media(prefers-reduced-motion:reduce){.header-garland-hanger{animation:none}}
+@media print{#header-garland{display:none!important}}
+
+.season-banner-garland{position:absolute;left:250px;right:175px;top:0;height:62px;pointer-events:none;overflow:hidden;opacity:.85}
+.season-banner-garland .header-garland-charm{width:22px;height:22px}
+.season-banner-garland .header-garland-thread{height:5px}
+.season-banner>:not(.season-banner-garland){position:relative;z-index:1}
+@media(max-width:1100px){.season-banner-garland{display:none}}
+@media print{.season-banner-garland{display:none!important}}
