@@ -142,6 +142,9 @@ def inspect_files(files):
         r['detail']=' · '.join(dict.fromkeys(r['details']))
         r['settled']=True
     history.sort(key=lambda r:(r['date'] or r['period'],int(r['code']),r['number'],r['key']))
+    unassigned=[r for r in history if r['code'] not in contacts]
+    for r in unassigned:
+        warnings.append({'kind':'unidentified_historical_client','code':r['code'],'amount':r['amount'],**r['source']})
     # MONTO entries are actual movements. ULTIMO ABONO is a reference, not a second payment.
     movements=defaultdict(list);references=defaultdict(list)
     for r in snapshots:
@@ -170,6 +173,7 @@ def inspect_files(files):
     for k in sorted(missing):warnings.append({'kind':'missing_current_contact','code':k})
     summary={'contacts':len(contacts),'historical_purchases':sum(r['kind']=='purchase' for r in history),
              'historical_months':len(monthly),'historical_total':sum(r['amount'] for r in history),
+             'unassigned_historical_total':sum(r['amount'] for r in unassigned),'unassigned_historical_records':len(unassigned),
              'period':latest,'current_clients':len(counts),'opening':sum(s['opening'] for s in latest_rows),
              'current_payments':sum(s['payment'] for s in latest_rows),
              'receivable':sum(max(0,s['balance']) for s in latest_rows),
