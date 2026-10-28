@@ -245,7 +245,7 @@ class FinanceTests(unittest.TestCase):
             alloc_sum=c.execute('SELECT COALESCE(SUM(a.amount),0) FROM allocations a JOIN installments i ON i.id=a.installment_id WHERE i.order_id=?',(o['id'],)).fetchone()[0]
             self.assertEqual(alloc_sum,30000)
 
-    def test_cindy_excel_multisheet_review_and_confirm(self):
+    def test_cindy_requires_separate_history_and_cxc_books(self):
         import io
         from openpyxl import Workbook
         wb=Workbook()
@@ -258,21 +258,11 @@ class FinanceTests(unittest.TestCase):
         buf=io.BytesIO();wb.save(buf);buf.seek(0)
         with self.http.session_transaction() as s:s['user']=1;s['csrf']='test'
         rev=self.http.post('/api/import/cindy-review',data={'files':[(buf,'CXC_2026.xlsx')]},headers={'X-CSRF-Token':'test'})
-        self.assertEqual(rev.status_code,200)
-        imp=rev.json['importable_sources']
-        self.assertEqual(len(imp),1)
-        conf=self.http.post('/api/import/cindy-confirm',json={'records':imp[0]['records'],'source_label':'OCTUBRE','installments_count':3,'first_due':'2026-11-15','frequency':'monthly'},headers={'X-CSRF-Token':'test'})
-        self.assertEqual(conf.status_code,200)
-        self.assertEqual(conf.json['created_orders'],1)
-        with a.db() as c:
-            cl=a.one(c,"SELECT * FROM clients WHERE phone='56977776666'")
-            self.assertEqual(cl['name'],'Claudia Soto')
-            o=a.one(c,'SELECT * FROM orders WHERE client_id=?',(cl['id'],))
-            self.assertEqual(a.balance(c,o['id']),60000)
-            ins=a.rows(c,'SELECT * FROM installments WHERE order_id=?',(o['id'],))
-            self.assertEqual(len(ins),0)
+        self.assertEqual(rev.status_code,400)
+        self.assertIn('dos Excel',rev.json['error'])
+        with a.db() as c:self.assertEqual(c.execute('SELECT COUNT(*) FROM orders').fetchone()[0],1)
 
-    def test_cindy_ledger_fifo_orders_and_payments_import(self):
+    def test_cindy_legacy_fifo_payload_cannot_write(self):
         import io
         from openpyxl import Workbook
         wb=Workbook()
@@ -290,20 +280,13 @@ class FinanceTests(unittest.TestCase):
         buf=io.BytesIO();wb.save(buf);buf.seek(0)
         with self.http.session_transaction() as s:s['user']=1;s['csrf']='test'
         rev=self.http.post('/api/import/cindy-review',data={'files':[(buf,'CLUB_CINDYLU.xlsx')]},headers={'X-CSRF-Token':'test'})
-        self.assertEqual(rev.status_code,200)
-        imp=next(x for x in rev.json['importable_sources'] if x['id']=='reconciled::cindy_master')
-        self.assertEqual(len(imp['records']),1)
-        self.assertEqual(imp['records'][0]['order_number'],'#6044')
-        self.assertEqual(imp['records'][0]['balance'],59980)
-        conf=self.http.post('/api/import/cindy-confirm',json={'records':imp['records'],'source_label':'Cartera Conciliada','installments_count':3,'first_due':'2026-08-30','frequency':'monthly'},headers={'X-CSRF-Token':'test'})
-        self.assertEqual(conf.status_code,200)
-        self.assertEqual(conf.json['created_payments'],3)
+        self.assertEqual(rev.status_code,400)
+        conf=self.http.post('/api/import/cindy-confirm',json={'records':[{'name':'Ana','total':129980,'balance':59980}],'source_label':'Cartera Conciliada'},headers={'X-CSRF-Token':'test'})
+        self.assertEqual(conf.status_code,400)
+        self.assertIn('importador actualizado',conf.json['error'])
         with a.db() as c:
-            cl=a.one(c,"SELECT * FROM clients WHERE phone='56998765432'")
-            o=a.one(c,"SELECT * FROM orders WHERE client_id=? AND number='#6044'",(cl['id'],))
-            self.assertEqual(a.balance(c,o['id']),59980)
-            p_cnt=c.execute('SELECT COUNT(*) FROM payments WHERE order_id=? AND reversed=0',(o['id'],)).fetchone()[0]
-            self.assertEqual(p_cnt,3)
+            self.assertEqual(c.execute('SELECT COUNT(*) FROM payments').fetchone()[0],0)
+            self.assertEqual(c.execute('SELECT COUNT(*) FROM orders').fetchone()[0],1)
 
 if __name__=='__main__':unittest.main(verbosity=2)
 
