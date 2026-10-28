@@ -47,8 +47,8 @@
   const shell=document.querySelector('#shell');if(!shell||shell.classList.contains('hidden'))return false;
   node=document.createElement('div');node.className='calm-message';node.setAttribute('role','status');node.setAttribute('aria-live','polite');node.textContent=text;
   document.body.appendChild(node);
-  // The animation includes both fades and ends at exactly three seconds.
-  removeTimer=setTimeout(clearMessage,3000);
+  // The animation includes both fades and ends at exactly five seconds.
+  removeTimer=setTimeout(clearMessage,5000);
   return true;
  }
  function greet(){
@@ -82,3 +82,4 @@
  });
  root.CindyCalm={start,stop,phrase,elapsed};
 })(typeof window!=='undefined'?window:globalThis);
+

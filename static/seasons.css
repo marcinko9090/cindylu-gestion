@@ -77,11 +77,11 @@ body[data-season-variant="1"] .season-banner{border-radius:4px 18px 4px 18px}bod
 @media(max-width:680px){.panel-welcome-motif{width:30px;height:30px}.panel-welcome-brand{gap:9px}}
 
 
-/* A quiet, non-blocking three-second note inside the private workspace. */
-.calm-message{position:fixed;z-index:140;top:max(88px,calc(env(safe-area-inset-top) + 70px));right:24px;max-width:min(340px,calc(100vw - 32px));padding:15px 21px;border:1px solid #cfb77f;border-radius:18px;background:#fffaf0f5;color:#54432a;box-shadow:0 8px 30px #8c6b2417;font-size:15px;line-height:1.5;text-align:center;pointer-events:none;opacity:0;animation:cindy-calm-note 3s ease both;}
+/* A quiet, non-blocking five-second note inside the private workspace. */
+.calm-message{position:fixed;z-index:140;top:max(88px,calc(env(safe-area-inset-top) + 70px));right:24px;max-width:min(340px,calc(100vw - 32px));padding:15px 21px;border:1px solid #cfb77f;border-radius:18px;background:#fffaf0f5;color:#54432a;box-shadow:0 8px 30px #8c6b2417;font-size:15px;line-height:1.5;text-align:center;pointer-events:none;opacity:0;animation:cindy-calm-note 5s ease both;}
 @keyframes cindy-calm-note{0%{opacity:0;transform:translateY(8px);filter:blur(3px)}16%,78%{opacity:1;transform:translateY(0);filter:blur(0)}100%{opacity:0;transform:translateY(-6px);filter:blur(4px)}}
 @media(max-width:600px){.calm-message{right:16px;left:16px;margin:auto;font-size:14px;}}
-@media(prefers-reduced-motion:reduce){.calm-message{animation:cindy-calm-still 3s linear both;}}
+@media(prefers-reduced-motion:reduce){.calm-message{animation:cindy-calm-still 5s linear both;}}
 @keyframes cindy-calm-still{0%,100%{opacity:0}10%,85%{opacity:1}}
 
 
@@ -107,3 +107,4 @@ body[data-season-variant="1"] .season-banner{border-radius:4px 18px 4px 18px}bod
 .season-banner>:not(.season-banner-garland){position:relative;z-index:1}
 @media(max-width:1100px){.season-banner-garland{display:none}}
 @media print{.season-banner-garland{display:none!important}}
+

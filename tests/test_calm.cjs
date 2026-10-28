@@ -16,7 +16,7 @@ function fixture(){
  return {api:ctx.CindyCalm,advance,events,doc,nodes,saved,modal:v=>modal=v,shell:v=>hiddenShell=v};
 }
 let f=fixture();f.api.start();f.advance(0);assert.equal(f.nodes.length,1);assert(f.nodes[0].textContent.length<65);
-f.advance(2999);assert.equal(f.nodes.length,1);f.advance(1);assert.equal(f.nodes.length,0);
+f.advance(4999);assert.equal(f.nodes.length,1);f.advance(1);assert.equal(f.nodes.length,0);
 f.api.start();f.advance(0);assert.equal(f.nodes.length,0); // refresh cannot replay
 f.api.stop();f.api.start();f.advance(0);assert.equal(f.nodes.length,0); // same-day login cannot replay
 assert.equal(f.api.elapsed(0,1800000,0,true),60000);assert.equal(f.api.elapsed(0,1800000,0,false),0);
@@ -25,7 +25,7 @@ f.api.stop();f.api.start();f.advance(0);
 for(let i=0;i<29*60;i++){f.events.pointerdown({isTrusted:true});f.advance(1000);}
 assert.equal(f.nodes.length,0);
 for(let i=0;i<60;i++){f.events.keydown({isTrusted:true});f.advance(1000);}
-assert.equal(f.nodes.length,1);f.advance(3000);assert.equal(f.nodes.length,0);
+assert.equal(f.nodes.length,1);f.advance(5000);assert.equal(f.nodes.length,0);
 f.doc.hidden=true;f.events.visibilitychange();f.advance(60*60000);assert.equal(f.nodes.length,0);
 f.doc.hidden=false;f.events.visibilitychange();assert.equal(f.nodes.length,0);
 f.api.stop();f.advance(60*60000);assert.equal(f.nodes.length,0);
@@ -35,5 +35,6 @@ f.api.stop();assert.equal(f.nodes.length,0);f.advance(5000);assert.equal(f.nodes
 f=fixture();f.api.start({delay:4200});f.api.stop();f.advance(5000);assert.equal(f.nodes.length,0);
 assert.notEqual(f.api.phrase('2026-10-28'),f.api.phrase('2026-10-29'));
 const css=fs.readFileSync(path.join(__dirname,'../static/seasons.css'),'utf8');
-assert(css.includes('cindy-calm-note 3s'));assert(css.includes('cindy-calm-still 3s'));assert(css.includes('pointer-events:none'));
-console.log('Calm notes: daily once, exact three seconds, real active time, idle/background exclusion, dialogs, logout, welcome delay and reduced motion passed.');
+assert(css.includes('cindy-calm-note 5s'));assert(css.includes('cindy-calm-still 5s'));assert(css.includes('pointer-events:none'));
+console.log('Calm notes: daily once, exact five seconds, real active time, idle/background exclusion, dialogs, logout, welcome delay and reduced motion passed.');
+
