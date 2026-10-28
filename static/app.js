@@ -58,7 +58,7 @@ function clientPurchaseDetails(cid){
  const local=stored.filter(o=>!remote.some(r=>same(o,r))&&(o.status==='active'||detailed(o)));
  for(const o of local){
   const previous=o.status==='restructured';
-  entries.push({date:o.purchased,html:`<article class="client-purchase-card"><h3>${esc(o.number)} · ${esc(cl.name)}</h3><p class="subtle">${day(o.purchased)}${previous?' · Compra anterior · detalle de referencia':''}</p>${ledgerProducts(o)}<p class="client-purchase-card-total">Total de la compra: <strong>${money(o.total)}</strong></p>${previous?'<small class="subtle">Este detalle no agrega deuda al saldo actual.</small>':clientPurchaseActions(o)}</article>`});
+  entries.push({date:o.purchased,html:`<article class="client-purchase-card"><h3>${esc(o.number)} · ${esc(cl.name)}</h3><p class="subtle">${day(o.purchased)}${previous?' · Compra anterior · detalle de referencia':''}</p>${ledgerProducts(o)}<p class="client-purchase-card-total">Total de la compra: <strong>${money(o.total)}</strong></p>${previous?'':clientPurchaseActions(o)}</article>`});
  }
  entries.sort((a,b)=>String(b.date).localeCompare(String(a.date)));
  return `<section class="card client-purchase-details"><div class="card-head"><h2>Compras y productos</h2><button class="outline" data-action="sync">Actualizar productos de Shopify</button></div>${entries.length?entries.map(e=>e.html).join(''):'<p class="subtle">Todavía no hay productos vinculados a esta ficha. Actualiza Shopify; si el pedido está en Pendientes de Shopify, vincúlalo a esta clienta para mostrar aquí su detalle.</p>'}</section>`;
