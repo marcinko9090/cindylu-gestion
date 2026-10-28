@@ -83,6 +83,16 @@ model.cxc_history=[{client_id:1,key:'old',date:'2026-01-03',amount:1000,current:
 model.orders.push({...makeOrder(6,1,2000,0,1500,'2026-10'),source:'cxc'});
 model.payments.push({id:17,order_id:6,amount:500,date:'2026-10-10',reversed:0});
 const historyHtml=ui.CindyHistory.render(model,1,ui.esc,ui.money,ui.day);
+assert(historyHtml.includes('Total comprado por año'));
+assert(historyHtml.includes('history-year'));
+const yearly=ui.CindyHistory.years([
+ {period:'2024-01',amount:5000},{period:'2024-02',amount:-500},
+ {period:'2025-03',amount:1000},{period:'',date:'',amount:200}
+]);
+assert.equal(yearly.map(y=>y.year).join(','),'2025,2024,Sin fecha');
+assert.equal(yearly[1].total,4500);
+assert.equal(yearly[1].months.size,2);
+assert.equal(yearly.reduce((s,y)=>s+y.total,0),5700);
 assert(historyHtml.includes('$2.000'));assert(historyHtml.includes('2 × Labial &lt;Rosa&gt; 5 ml'));assert(historyHtml.includes('2024-02'));assert(historyHtml.includes('no genera deuda'));
 const cutHtml=ui.clientLedger(1);
 assert(cutHtml.includes('Saldo del corte CXC'));assert(cutHtml.includes('Sin pedido indicado en CXC'));
@@ -91,3 +101,4 @@ assert.equal((cutHtml.match(/data-ledger-payment="17"/g)||[]).length,1);
 assert.equal(ui.CindyHistory.payments(model,1).length,1);
 assert(cutHtml.includes('ya considerado en el corte, no se descuenta otra vez'));
 console.log('Settled monthly history, exact product details, CXC cut separation, payment references and month-only year grouping passed.');
+
