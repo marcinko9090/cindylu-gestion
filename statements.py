@@ -48,14 +48,18 @@ def pdf(data):
     def table(rows,widths):
         t=Table([[p(v,'Muted') for v in r] for r in rows],colWidths=widths,repeatRows=1,hAlign='LEFT')
         t.setStyle(TableStyle([('BACKGROUND',(0,0),(-1,0),colors.HexColor('#f3e8ce')),('VALIGN',(0,0),(-1,-1),'TOP'),('LINEBELOW',(0,0),(-1,0),.7,colors.HexColor('#c6a159')),('LINEBELOW',(0,1),(-1,-1),.3,colors.HexColor('#e8e3da')),('TOPPADDING',(0,0),(-1,-1),5),('BOTTOMPADDING',(0,0),(-1,-1),5)]));return t
-    story += [table([['Compras con deuda','Pagado en estas compras','Saldo pendiente'],[money(data['total']),money(data['paid']),money(data['balance'])]],[165,165,165]),Spacer(1,6),p('Solo se incluyen compras con saldo pendiente. Las compras totalmente pagadas y las anuladas quedan excluidas.','Muted')]
+    has_cxc=any(o['source']=='cxc' for o in data['orders'])
+    story += [table([['Compras y cortes con deuda' if has_cxc else 'Compras con deuda','Abonado en estos registros' if has_cxc else 'Pagado en estas compras','Saldo pendiente'],[money(data['total']),money(data['paid']),money(data['balance'])]],[165,165,165]),Spacer(1,6),p('Solo se incluyen registros con saldo pendiente. Las compras históricas pagadas y los registros reemplazados o anulados quedan excluidos.' if has_cxc else 'Solo se incluyen compras con saldo pendiente. Las compras totalmente pagadas y las anuladas quedan excluidas.','Muted')]
     if not data['orders']:story.append(p('No hay compras con deuda pendiente.','Heading2'))
     for o in data['orders']:
-        intro=[Spacer(1,10),p(o['number']+' · Compra del '+date(o['purchased']),'Gold')]
+        is_cxc=o['source']=='cxc'
+        intro=[Spacer(1,10),p(('Saldo de corte CXC · '+date(o['purchased'])) if is_cxc else o['number']+' · Compra del '+date(o['purchased']),'Gold')]
         story.append(KeepTogether(intro))
-        for item in o['items']:story.append(p(str(item.get('quantity',1))+' × '+str(item.get('title','Artículo'))))
+        if is_cxc:story.append(p('El Excel informa el saldo por clienta, sin número de pedido ni detalle de productos.','Muted'))
+        else:
+            for item in o['items']:story.append(p(str(item.get('quantity',1))+' × '+str(item.get('title','Artículo'))))
         confirmed_paid=sum(x['amount'] for x in o.get('payments',[]))
-        story.append(p('Total compra: '+money(o['total'])+' − Pagos previos: '+money(o.get('base_paid',0))+' − Abonos confirmados: '+money(confirmed_paid)+' = Saldo pendiente: '+money(o['balance']),'Heading3'))
+        story.append(p(('Saldo inicial del corte: ' if is_cxc else 'Total compra: ')+money(o['total'])+' − Pagos previos: '+money(o.get('base_paid',0))+' − Abonos confirmados: '+money(confirmed_paid)+' = Saldo pendiente: '+money(o['balance']),'Heading3'))
         if o['review']:story.append(p('POR REVISAR: '+o['review']+' Este documento refleja el saldo local registrado.','Muted'))
         if o['base_paid']:story.append(p('Pagos previos al registro: '+money(o['base_paid'])+'.','Muted'))
         if o['payments']:
@@ -66,4 +70,5 @@ def pdf(data):
         canvas.setFont('Helvetica',8);canvas.setFillColor(colors.HexColor('#776b58'));canvas.drawString(50,25,'Cindy Lú · Estado de cuenta al momento de emisión');canvas.drawRightString(A4[0]-50,25,'Página '+str(doc.page))
     SimpleDocTemplate(buf,pagesize=A4,rightMargin=50,leftMargin=50,topMargin=32,bottomMargin=38,title='Estado de cuenta - Cindy Lú').build(story,onFirstPage=footer,onLaterPages=footer)
     buf.seek(0);return buf
+
 

@@ -7,6 +7,7 @@ import shopify_auth
 from shopify_review import review_record, merge_review_records, shopify_items
 from flask import Flask, request, session, jsonify, send_file, render_template
 from seasons import season_for
+import cindy_import
 from werkzeug.security import generate_password_hash, check_password_hash
 
 ROOT=Path(__file__).resolve().parent
@@ -83,6 +84,7 @@ def init():
         CREATE TABLE IF NOT EXISTS statement_sends(id INTEGER PRIMARY KEY,operation TEXT UNIQUE NOT NULL,client_id INTEGER NOT NULL REFERENCES clients(id),digest TEXT NOT NULL,body TEXT NOT NULL,phone TEXT NOT NULL,balance INTEGER NOT NULL,path TEXT DEFAULT '',filename TEXT NOT NULL,status TEXT NOT NULL,wa_id TEXT UNIQUE,error TEXT DEFAULT '',created TEXT NOT NULL);
         CREATE TABLE IF NOT EXISTS audit(id INTEGER PRIMARY KEY,event TEXT,data TEXT,created TEXT);
         ''')
+        cindy_import.init_schema(c)
         for k,v in {'auto_reply':False,'payment_notify':False,'payment_text':'Hola, {nombre} ✨ Confirmamos tu abono de {monto} para la compra {compra}. Saldo de esta compra: {saldo_compra}. Tu saldo total pendiente es {saldo_total}. ¡Gracias por comprar en Cindy Lú!','sending':False,'reply_text':'Gracias, recibimos tu comprobante. Revisaremos la transferencia y te confirmaremos el abono.','template':'','template_language':'es_CL','statement_template':'','statement_language':'es_CL','sync_at':'','sync_error':'','shopify_domain':'cindylu.myshopify.com','shopify_token':'','shopify_credit_mode':'credit_when_paid','shopify_default_installments':0}.items(): c.execute('INSERT OR IGNORE INTO settings VALUES(?,?)',(k,json.dumps(v)))
         c.execute("UPDATE payment_notices SET status='review',error='Envío interrumpido; revisar antes de reenviar.' WHERE status='sending'")
         c.execute("UPDATE statement_sends SET status='review',error='Envío interrumpido; revisar WhatsApp antes de reenviar.' WHERE status IN ('preparing','sending')")
@@ -201,7 +203,11 @@ def logout():session.clear();return jsonify(ok=True)
 @app.get('/api/state')
 def state():
     with db() as c:
-        clients=rows(c,'SELECT * FROM clients ORDER BY name')
+        clients=rows(c,'''SELECT c.*,cc.code,cc.work AS workplace,cc.raw_phone FROM clients c LEFT JOIN client_codes cc ON cc.client_id=c.id ORDER BY c.name''')
+        history=rows(c,'SELECT * FROM purchase_history ORDER BY date,period,number,key')
+        for h in history:h['items']=json.loads(h['items'])
+        cxc_history=rows(c,'SELECT * FROM cxc_payment_history ORDER BY date,key')
+        cxc_accounts=rows(c,'SELECT * FROM cxc_accounts')
         orders=rows(c,'SELECT * FROM orders ORDER BY purchased DESC,id DESC')
         for o in orders:o['items']=json.loads(o['items']);o['balance']=balance(c,o['id'])
         ins=rows(c,'''SELECT i.*,i.amount-COALESCE((SELECT SUM(a.amount) FROM allocations a JOIN payments p ON p.id=a.payment_id WHERE a.installment_id=i.id AND p.reversed=0),0) pending FROM installments i ORDER BY due,number''')
@@ -210,7 +216,7 @@ def state():
         shop_tok=shopify_auth.configured(cfg)
         safe_cfg={k:v for k,v in cfg.items() if k!='shopify_token'}
         safe_cfg['has_shopify_token']=bool(cfg.get('shopify_token'))
-        return jsonify(statement_sends=rows(c,'SELECT id,client_id,body,phone,balance,filename,status,wa_id,error,created FROM statement_sends ORDER BY id'),clients=clients,orders=orders,installments=ins,payments=rows(c,'SELECT * FROM payments ORDER BY id DESC'),allocations=allocs,receipts=rows(c,'SELECT id,client_id,filename,mime,status,created FROM receipts ORDER BY id DESC'),messages=rows(c,'SELECT * FROM messages ORDER BY id'),reminders=rows(c,'SELECT * FROM reminders ORDER BY at'),payment_notices=rows(c,'SELECT * FROM payment_notices ORDER BY payment_id DESC'),settings=safe_cfg,today=today(),season=season_for(),demo=DEMO,integrations={'shopify':shop_tok and not DEMO,'whatsapp':bool(os.getenv('WA_ACCESS_TOKEN') and os.getenv('WA_PHONE_NUMBER_ID') and os.getenv('WA_APP_SECRET')) and not DEMO,'shop':os.getenv('SHOPIFY_DOMAIN') or cfg.get('shopify_domain') or 'cindylu.myshopify.com'})
+        return jsonify(purchase_history=history,cxc_history=cxc_history,cxc_accounts=cxc_accounts,statement_sends=rows(c,'SELECT id,client_id,body,phone,balance,filename,status,wa_id,error,created FROM statement_sends ORDER BY id'),clients=clients,orders=orders,installments=ins,payments=rows(c,'SELECT * FROM payments ORDER BY id DESC'),allocations=allocs,receipts=rows(c,'SELECT id,client_id,filename,mime,status,created FROM receipts ORDER BY id DESC'),messages=rows(c,'SELECT * FROM messages ORDER BY id'),reminders=rows(c,'SELECT * FROM reminders ORDER BY at'),payment_notices=rows(c,'SELECT * FROM payment_notices ORDER BY payment_id DESC'),settings=safe_cfg,today=today(),season=season_for(),demo=DEMO,integrations={'shopify':shop_tok and not DEMO,'whatsapp':bool(os.getenv('WA_ACCESS_TOKEN') and os.getenv('WA_PHONE_NUMBER_ID') and os.getenv('WA_APP_SECRET')) and not DEMO,'shop':os.getenv('SHOPIFY_DOMAIN') or cfg.get('shopify_domain') or 'cindylu.myshopify.com'})
 @app.get('/api/clients/<int:cid>/statement.pdf')
 def statement_pdf(cid):
     from statements import snapshot,pdf
@@ -575,6 +581,8 @@ def import_shop_order(c,o,allow_new=True):
         if local_phone and remote_phone and local_phone!=remote_phone:return False
         return bool((sid and sid==client['shopify_id']) or (local_phone and local_phone==remote_phone)
                     or (remote_email and remote_email==str(client['email'] or '').strip().lower()))
+    if cindy_import.enrich_history(c,o,items,total,remote_phone,remote_email,sid):
+        return 'updated'
     if not old:
         normalized=str(o['name']).strip().lstrip('#').strip()
         matches=rows(c,"SELECT * FROM orders WHERE trim(ltrim(trim(number),'#'))=?",(normalized,))
@@ -751,76 +759,48 @@ def edit_client(cid):
 
 @app.post('/api/import/cindy-review')
 def review_cindy():
-    from cxc_review import inspect_files
+    from cindy_sources import inspect_files
     fs=request.files.getlist('files')
-    if not fs or len(fs)>6:raise ValueError('Selecciona entre 1 y 6 archivos Excel (.xlsx).')
+    if len(fs)!=2:raise ValueError('Selecciona los dos Excel: CLUB CINDYLÚ histórico y CXC del año vigente.')
     files=[]
     for f in fs:
         if not (f.filename or '').lower().endswith('.xlsx'):raise ValueError('Usa archivos .xlsx de Excel.')
         content=f.read(25*1024*1024+1)
         if len(content)>25*1024*1024:raise ValueError('Cada Excel debe pesar hasta 25 MB.')
         files.append((f.filename,content))
-    return jsonify(inspect_files(files))
+    payload=inspect_files(files)
+    with db() as c:review=cindy_import.plan(c,payload,balance)
+    token=secrets.token_hex(24)
+    folder=DATA/'imports';folder.mkdir(exist_ok=True)
+    staged={'owner':session['user'],'created':now(),'payload':payload,'review':review}
+    target=folder/(token+'.json');target.write_text(json.dumps(staged,ensure_ascii=False),encoding='utf8');target.chmod(0o600)
+    return jsonify(token=token,summary=payload['summary'],sheets=payload['sheets'],warnings=payload['warnings'],
+                   review={k:v for k,v in review.items() if k not in ('matches','replace_ids','fingerprint')})
 
 @app.post('/api/import/cindy-confirm')
 def confirm_cindy():
-    d=request.get_json() or {}
-    records=d.get('records',[])
-    if not records or len(records)>10000:raise ValueError('Selecciona una hoja con hasta 10000 registros para importar.')
-    source_label=str(d.get('source_label') or 'Excel Cindy Lú')[:120]
-    created_clients=0;updated_clients=0;created_orders=0;skipped_orders=0;created_payments=0
-    seen_clients=set()
+    d=request.get_json() or {};token=str(d.get('token') or '')
+    if not re.fullmatch(r'[a-f0-9]{48}',token):raise ValueError('Analiza nuevamente los dos Excel con el importador actualizado.')
+    path=DATA/'imports'/(token+'.json')
+    if not path.is_file():raise ValueError('La revisión ya no está disponible. Analiza nuevamente los Excel.')
+    staged=json.loads(path.read_text(encoding='utf8'))
+    if staged['owner']!=session['user'] or dt.datetime.now(dt.timezone.utc)-dt.datetime.fromisoformat(staged['created'])>dt.timedelta(hours=12):
+        raise ValueError('La revisión venció o pertenece a otro acceso. Analiza otra vez los Excel.')
+    with db() as c:
+        check=cindy_import.plan(c,staged['payload'],balance)
+        if check['already_imported']:return jsonify(check['result'])
+        if check['blocked']:raise ValueError(' '.join(check['blocked'][:4]))
+        if check['fingerprint']!=staged['review']['fingerprint']:raise ValueError('Hubo cambios desde la revisión. Analiza otra vez antes de importar.')
+        backup_dir=DATA/'backups';backup_dir.mkdir(exist_ok=True)
+        backup_path=backup_dir/('antes-reestructuracion-'+token+'.sqlite3')
+        out=sqlite3.connect(backup_path)
+        try:c.backup(out)
+        finally:out.close()
+        backup_path.chmod(0o600)
     with db(True) as c:
-        for idx_rec,r in enumerate(records):
-            name=str(r.get('name') or '').strip()[:150]
-            if not name:continue
-            code_val=str(r.get('code') or '').strip()
-            try:p=phone(r.get('phone') or '')
-            except ValueError:p=''
-            work=str(r.get('work') or '').strip()
-            note_tag=('COD '+code_val+(' · '+work if work else '')) if code_val else work
-            existing=None
-            if code_val:
-                existing=c.execute("SELECT * FROM clients WHERE notes LIKE ? OR notes LIKE ?",('COD '+code_val+' ·%','COD '+code_val)).fetchone()
-            if not existing and p:
-                existing=c.execute('SELECT * FROM clients WHERE phone=?',(p,)).fetchone()
-            if not existing:
-                existing=c.execute('SELECT * FROM clients WHERE lower(name)=lower(?)',(name,)).fetchone()
-            if existing:
-                cid=existing['id']
-                if p and not existing['phone']:c.execute('UPDATE clients SET phone=? WHERE id=?',(p,cid))
-                if note_tag and (not existing['notes'] or existing['notes'].startswith('Importada')):
-                    c.execute('UPDATE clients SET notes=? WHERE id=?',(note_tag[:2000],cid))
-                if cid not in seen_clients:
-                    updated_clients+=1;seen_clients.add(cid)
-            else:
-                cid=c.execute('INSERT INTO clients(name,phone,email,notes) VALUES(?,?,?,?)',(name,p,str(r.get('email') or '')[:200],(note_tag or 'Importada de '+source_label)[:2000])).lastrowid
-                created_clients+=1;seen_clients.add(cid)
-            bal=amount(r.get('balance') or 0)
-            tot=max(amount(r.get('total') or bal),bal)
-            paid_prev=max(0,tot-bal)
-            if bal>0:
-                raw_onum=str(r.get('order_number') or '').strip()
-                order_num=raw_onum if raw_onum else (('COD-'+code_val if code_val else 'EXC-'+str(cid))+'-'+re.sub(r'[^A-Z0-9]','',source_label.upper())[:6])
-                if c.execute('SELECT 1 FROM orders WHERE client_id=? AND number=?',(cid,order_num)).fetchone():
-                    skipped_orders+=1;continue
-                itm_title=str(r.get('item') or ('Saldo importado · '+source_label))[:250]
-                pay_hist=r.get('payments') or []
-                use_real_payments=bool(pay_hist) and sum(amount(px.get('amount') or 0) for px in pay_hist)==paid_prev
-                base_p=0 if use_real_payments else paid_prev
-                purch_dt=date(r.get('date') or today())
-                oid=c.execute('INSERT INTO orders(client_id,number,purchased,total,base_paid,items,source,updated) VALUES(?,?,?,?,?,?,?,?)',(cid,order_num,purch_dt,tot,base_p,json.dumps([{'title':itm_title,'quantity':1}],ensure_ascii=False),'excel',now())).lastrowid
-                if use_real_payments:
-                    for p_i,px in enumerate(pay_hist):
-                        p_amt=amount(px.get('amount') or 0)
-                        if p_amt>0:
-                            op_raw=re.sub(r'[^a-zA-Z0-9_-]','',str(px.get('op_seed') or f'exc-{oid}-{idx_rec}-{p_i}'))
-                            op_id=(op_raw+'0000000000000000')[:60]
-                            pay(c,{'order_id':oid,'amount':p_amt,'date':date(px.get('date') or purch_dt),'method':'transferencia','note':str(px.get('note') or 'Abono importado de Excel')[:500],'operation':op_id})
-                            created_payments+=1
-                created_orders+=1
-        audit(c,'cindy_excel_imported',{'source':source_label,'clients':created_clients,'orders':created_orders,'payments':created_payments})
-    return jsonify(created_clients=created_clients,updated_clients=updated_clients,created_orders=created_orders,skipped_orders=skipped_orders,created_payments=created_payments)
+        result=cindy_import.apply(c,staged['payload'],staged['review'],now,pay,balance)
+        audit(c,'cindy_sources_restructured',{'digest':staged['payload']['digest'],**result})
+    return jsonify(result)
 
 @app.post('/api/import/preview')
 def import_preview():

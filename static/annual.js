@@ -3,7 +3,7 @@
  'use strict';
  function purchaseYear(value){
   const text=String(value||'');
-  if(/^\d{4}-\d{2}-\d{2}$/.test(text))return text.slice(0,4);
+  if(/^\d{4}-\d{2}(?:-\d{2})?$/.test(text))return text.slice(0,4);
   const date=new Date(text);
   return Number.isNaN(date.getTime())?'Sin fecha':new Intl.DateTimeFormat('en',{year:'numeric',timeZone:'America/Santiago'}).format(date);
  }
@@ -22,3 +22,4 @@
  if(typeof module!=='undefined'&&module.exports)module.exports=api;
  else root.CindyAnnual=api;
 })(typeof window!=='undefined'?window:globalThis);
+
