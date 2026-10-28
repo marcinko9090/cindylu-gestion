@@ -171,3 +171,34 @@ assert.equal(ui.clientTags({id:999,workplace:'sin codigo'}).join(','),'Sin etiqu
 model.settings.shopify_pending_orders[0].tags=[];
 assert(ui.shopifyPendingView().includes('Perfume &lt;Rosa&gt; 100 ml'));
 console.log('Excel workplace fallback, CLC canonical label, Shopify tag precedence and unchanged client IDs/balances passed.');
+
+
+// Product details survive CXC restructuring and incomplete Shopify snapshots.
+const savedOrders=model.orders,savedPending=model.settings.shopify_pending_orders;
+const debtBefore=ui.balance(1);
+const oldProducts={...makeOrder(801,1,98490,0,98490,'2026-10-26','restructured',[{quantity:1,title:'Cartera <Steave>'},{quantity:1,title:'Base MAC stick'}]),number:'#6441',shopify_id:'gid/6441'};
+model.orders=[...savedOrders,oldProducts,
+ {...makeOrder(802,1,8000,0,8000,'2026-10-25','restructured',[{quantity:1,title:'Pedido #6442'}]),number:'#6442'},
+ {...makeOrder(803,1,7000,0,7000,'2026-10-24','cancelled',[{quantity:1,title:'Producto anulado'}]),number:'#6443'},
+ {...makeOrder(804,2,98490,0,98490,'2026-10-26','restructured',[{quantity:1,title:'Producto de otra clienta'}]),number:'#6441'}];
+model.settings.shopify_pending_orders=[];
+let cards=ui.clientPurchaseDetails(1);
+assert(cards.includes('Cartera &lt;Steave&gt;'));assert(cards.includes('Base MAC stick'));
+assert(cards.includes('Compra anterior · detalle de referencia'));
+assert(!cards.includes('Pedido #6442'));assert(!cards.includes('Producto anulado'));
+assert(!cards.includes('Producto de otra clienta'));
+assert(!cards.includes('Pago pendiente en Shopify'));assert.equal(ui.balance(1),debtBefore);
+model.settings.shopify_pending_orders=[{shopify_id:'gid/6441',number:'#6441',client_id:1,client_name:'Ana',purchased:'2026-10-26',total:98490,financial_status:'PENDING',items:[]}];
+cards=ui.clientPurchaseDetails(1);
+assert(cards.includes('Pago pendiente en Shopify'));assert(cards.includes('Base MAC stick'));
+assert.equal((cards.match(/Base MAC stick/g)||[]).length,1);
+assert(!cards.includes('data-id="801"'));assert.equal(ui.balance(1),debtBefore);
+assert.equal(model.settings.shopify_pending_orders[0].items.length,0); // Read-only display, no source mutation.
+model.settings.shopify_pending_orders[0].total=99999;
+assert.equal((ui.clientPurchaseDetails(1).match(/Base MAC stick/g)||[]).length,1); // Separate reference, never attached to a mismatched order.
+model.orders=[];model.settings.shopify_pending_orders=[];
+cards=ui.clientPurchaseDetails(1);
+assert(cards.includes('Compras y productos'));assert(cards.includes('Todavía no hay productos vinculados'));
+assert(cards.includes('data-action="sync"'));
+model.orders=savedOrders;model.settings.shopify_pending_orders=savedPending;
+console.log('Restructured products, incomplete pending details, no fabricated products and unchanged balances passed.');

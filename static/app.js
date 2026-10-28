@@ -46,9 +46,22 @@ function clientPurchaseActions(o){return `<details class="ledger-order-actions">
 function clientPurchaseDetails(cid){
  const cl=S.clients.find(c=>c.id===cid),remote=pendingShopifyOrders().filter(r=>r.client_id===cid);
  const normalized=n=>String(n||'').trim().replace(/^#/,'');
- const local=active(cid).filter(o=>o.source!=='cxc'&&!remote.some(r=>(o.shopify_id&&r.shopify_id===o.shopify_id)||(normalized(r.number)===normalized(o.number)&&r.total===o.total)));
- const entries=[...remote.map(r=>{const linked=active(cid).filter(o=>o.source!=='cxc'&&((o.shopify_id&&r.shopify_id===o.shopify_id)||(normalized(r.number)===normalized(o.number)&&r.total===o.total)));const actions=linked.length===1?clientPurchaseActions(linked[0]):'';return {date:r.purchased,html:pendingShopifyRow(r,0,true).replace('</article>',actions+'</article>')};}),...local.map(o=>({date:o.purchased,html:`<article class="client-purchase-card"><h3>${esc(o.number)} · ${esc(cl.name)}</h3><p class="subtle">${day(o.purchased)}</p>${ledgerProducts(o)}<p class="client-purchase-card-total">Total de la compra: <strong>${money(o.total)}</strong></p>${clientPurchaseActions(o)}</article>`}))].sort((a,b)=>String(b.date).localeCompare(String(a.date)));
- return entries.length?`<section class="card client-purchase-details"><h2>Compras y productos</h2>${entries.map(e=>e.html).join('')}</section>`:'';
+ const same=(a,b)=>a.shopify_id&&b.shopify_id?a.shopify_id===b.shopify_id:Boolean(normalized(a.number)&&normalized(a.number)===normalized(b.number)&&a.total===b.total);
+ const detailed=o=>Array.isArray(o.items)&&o.items.some(i=>{const title=String(i.title||'').trim();return title&&!/^(?:pedido|compra)(?:\s*#?\d+)?$/i.test(title)&&!/^(?:saldo|corte)\b/i.test(title);});
+ const stored=orders(cid).filter(o=>o.source!=='cxc'&&(o.status==='active'||o.status==='restructured'));
+ const entries=remote.map(r=>{
+  const matches=stored.filter(o=>same(r,o)),linked=matches.filter(o=>o.status==='active');
+  const available=matches.find(detailed),record=detailed(r)||!available?r:{...r,items:available.items};
+  const actions=linked.length===1?clientPurchaseActions(linked[0]):'';
+  return {date:r.purchased,html:pendingShopifyRow(record,0,true).replace('</article>',actions+'</article>')};
+ });
+ const local=stored.filter(o=>!remote.some(r=>same(o,r))&&(o.status==='active'||detailed(o)));
+ for(const o of local){
+  const previous=o.status==='restructured';
+  entries.push({date:o.purchased,html:`<article class="client-purchase-card"><h3>${esc(o.number)} · ${esc(cl.name)}</h3><p class="subtle">${day(o.purchased)}${previous?' · Compra anterior · detalle de referencia':''}</p>${ledgerProducts(o)}<p class="client-purchase-card-total">Total de la compra: <strong>${money(o.total)}</strong></p>${previous?'<small class="subtle">Este detalle no agrega deuda al saldo actual.</small>':clientPurchaseActions(o)}</article>`});
+ }
+ entries.sort((a,b)=>String(b.date).localeCompare(String(a.date)));
+ return `<section class="card client-purchase-details"><div class="card-head"><h2>Compras y productos</h2><button class="outline" data-action="sync">Actualizar productos de Shopify</button></div>${entries.length?entries.map(e=>e.html).join(''):'<p class="subtle">Todavía no hay productos vinculados a esta ficha. Actualiza Shopify; si el pedido está en Pendientes de Shopify, vincúlalo a esta clienta para mostrar aquí su detalle.</p>'}</section>`;
 }
 function pendingShopifyOrders(){return S.settings?.shopify_pending_orders||[];}
 function pendingShopifyRow(r,index,inFicha=false){
