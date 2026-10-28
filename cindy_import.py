@@ -95,7 +95,9 @@ def apply(c,payload,review,now,pay,balance):
     historical=0
     for r in payload['history']:
         cid=mapped.get(r['code'])
-        if cid is None:continue
+        if cid is None:
+            c.execute('INSERT INTO historical_ambiguities VALUES(?,NULL,?)',(digest(['unassigned',r]),json.dumps({'reason':'unidentified_historical_client',**r},ensure_ascii=False)))
+            continue
         items=r['items']
         if r['number'] and r['amount']>0:
             old=list(c.execute("SELECT items FROM orders WHERE client_id=? AND number=? AND total=? AND shopify_id IS NOT NULL",(cid,r['number'],r['amount'])))
