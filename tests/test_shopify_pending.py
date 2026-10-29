@@ -22,13 +22,16 @@ class PendingShopifyTests(unittest.TestCase):
         with patch.object(a.shopify_auth,'access_token',return_value='fake'),patch.object(a,'httpjson',return_value=page):return a.sync_shop()
     def records(self):
         with a.db() as c:return a.settings(c)['shopify_pending_orders']
-    def test_snapshot_products_and_contact_without_new_debt_or_payments(self):
+    def test_pending_review_adds_order_without_changing_prior_debt_or_payments(self):
         with a.db() as c:before={t:a.rows(c,'SELECT * FROM '+t) for t in ('clients','orders','payments','allocations','installments')}
         self.sync([self.order]);r=self.records()[0]
         self.assertEqual(r['client_id'],self.cid);self.assertEqual(r['items'],[{'title':'212 Sexy Carolina Herrera · 100 ml','quantity':1}])
         self.assertEqual(r['outstanding'],201950)
         with a.db() as c:
-            for t in before:self.assertEqual(a.rows(c,'SELECT * FROM '+t),before[t])
+            for t in ('clients','payments','allocations','installments'):self.assertEqual(a.rows(c,'SELECT * FROM '+t),before[t])
+            self.assertEqual(a.balance(c,self.oid),100001)
+            added=c.execute('SELECT id FROM orders WHERE shopify_id=?',(self.order['id'],)).fetchone()
+            self.assertEqual(a.balance(c,added[0]),201950)
     def test_excludes_invalid_cancelled_paid_and_refunds(self):
         invalid=[]
         for status,total,outstanding,cancelled in [('PAID','100','100',None),('PENDING','100','-1',None),('PENDING','100','100.5',None),('PENDING','100','101',None),('PENDING','100','0',None),('PENDING','100','100','2026-10-28')]:
@@ -73,7 +76,7 @@ class PendingShopifyTests(unittest.TestCase):
         self.assertEqual(self.http.post('/api/shopify/pending/link',json=body,headers={'X-CSRF-Token':'test'}).status_code,200)
         self.sync([self.order]);self.assertEqual(self.records()[0]['match'],'manual')
         self.assertEqual(self.records()[0]['client_id'],self.cid)
-        changed=copy.deepcopy(self.order);changed['customer']['id']='gid://shopify/Customer/other';self.sync([changed])
+        changed=copy.deepcopy(self.order);changed['id']='gid://shopify/Order/other';changed['name']='#other';changed['customer']['id']='gid://shopify/Customer/other';self.sync([changed])
         self.assertIsNone(self.records()[0]['client_id'])
     def test_complete_sync_removes_paid_orders_failed_sync_keeps_last_snapshot(self):
         self.sync([self.order]);before=self.records()
