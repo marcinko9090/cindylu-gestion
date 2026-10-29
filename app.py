@@ -711,6 +711,35 @@ def sync_shop():
     finally:SYNC_LOCK.release()
 @app.post('/api/shopify/sync')
 def sync():return jsonify(sync_shop())
+@app.post('/api/shopify/pending/add-debt')
+def add_shopify_debt():
+    d=request.get_json() or {}
+    sid=str(d.get('shopify_id',''))
+    with db(True) as c:
+        cfg=settings(c)
+        item=next((r for r in cfg.get('shopify_pending_orders',[]) if r['shopify_id']==sid),None)
+        if not item or item['fingerprint']!=d.get('fingerprint'):raise ValueError('El pedido cambió. Actualiza Shopify y vuelve a revisar.')
+        cid=int(d.get('client_id',0))
+        if not cid or cid!=item.get('client_id'):raise ValueError('Vincula primero el pedido a la ficha correcta.')
+        one(c,'SELECT id FROM clients WHERE id=?',(cid,))
+        existing=c.execute('SELECT * FROM orders WHERE shopify_id=?',(sid,)).fetchone()
+        if existing:
+            if existing['source']=='shopify_confirmed' and existing['client_id']==cid:return jsonify(ok=True,already_added=True,order_id=existing['id'])
+            raise ValueError('Este pedido ya tiene un registro. Revisa su saldo en la ficha; no se sumó nuevamente.')
+        key=str(item.get('number') or '').strip().lstrip('#').strip()
+        if not key:raise ValueError('Falta el número del pedido.')
+        if c.execute("SELECT 1 FROM orders WHERE trim(ltrim(trim(number),'#'))=?",(key,)).fetchone() or c.execute("SELECT 1 FROM purchase_history WHERE trim(ltrim(trim(number),'#'))=? AND kind='purchase'",(key,)).fetchone():
+            raise ValueError('El número de pedido ya existe en el historial. Revisa la cuenta antes de agregar deuda.')
+        total=amount(item['total']);pending=amount(item['outstanding'])
+        if item.get('financial_status') not in ('PENDING','PARTIALLY_PAID') or not 0<pending<=total:raise ValueError('El pedido no tiene un saldo pendiente válido.')
+        if amount(d.get('outstanding'))!=pending:raise ValueError('El saldo cambió. Revisa el pedido nuevamente.')
+        if d.get('confirm_not_in_balance') is not True:raise ValueError('Confirma que esta compra no está incluida en el saldo actual.')
+        remote=json.dumps({'total':total,'outstanding':pending,'cancelled':None,'items':item['items']},sort_keys=True,ensure_ascii=False)
+        oid=c.execute("INSERT INTO orders(client_id,shopify_id,number,purchased,total,base_paid,items,source,status,remote,updated) VALUES(?,?,?,?,?,?,?,'shopify_confirmed','active',?,?)",
+            (cid,sid,item['number'],item['purchased'],total,total-pending,json.dumps(item['items'],ensure_ascii=False),remote,now())).lastrowid
+        audit(c,'shopify_debt_confirmed',{'order_id':oid,'client_id':cid,'shopify_id':sid,'added_balance':pending,'fingerprint':item['fingerprint'],'user':session['user']})
+    return jsonify(ok=True,order_id=oid)
+
 @app.post('/api/shopify/review')
 def save_shopify_review():
     d=request.get_json();sid=str(d.get('shopify_id',''));fingerprint=str(d.get('fingerprint',''))
