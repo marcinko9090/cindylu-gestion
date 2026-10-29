@@ -72,5 +72,14 @@ class StatementHistoryTests(unittest.TestCase):
         self.assertTrue(cards[1]['previous'])
         self.assertNotIn('Anulado',str(cards))
 
+
+    def test_enriched_historical_products_appear_without_new_debt(self):
+        with a.db(True) as c:
+            c.execute("INSERT INTO purchase_history VALUES(?,?,?,?,?,?,?,?,?,?,?)",('test-historical',self.cid,'#5701','2026-04-27','2026-04',119990,'purchase','PEDIDO',json.dumps([{'title':'Producto histórico de prueba','quantity':1}]),'excel'))
+            data=snapshot(c,self.cid,a.balance,'now')
+            self.assertIn('#5701',[p['number'] for p in data['purchases']])
+            self.assertEqual(data['balance'],90000)
+            self.assertTrue(pdf(data).getvalue().startswith(b'%PDF'))
+
 if __name__=='__main__':unittest.main()
 

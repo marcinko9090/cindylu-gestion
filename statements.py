@@ -69,6 +69,15 @@ def snapshot(c,cid,balance,issued):
     shopify_orders.sort(key=lambda r:(str(r['purchased']),str(r['number'])))
     stored=[dict(r) for r in c.execute("SELECT * FROM orders WHERE client_id=? AND status IN ('active','restructured') ORDER BY purchased,id",(cid,))]
     for o in stored:o['items']=json.loads(o['items'])
+    historical=[]
+    for row in c.execute("SELECT * FROM purchase_history WHERE client_id=? AND kind='purchase'",(cid,)):
+        h=dict(row)
+        items=json.loads(h['items'])
+        if items:
+            historical.append(dict(number=h['number'],purchased=h['date'],total=h['amount'],items=items,previous=True,status='restructured',source='history'))
+    # Existing local/Shopify cards take precedence; historical products stay descriptive.
+    seen={str(o.get('number') or '').strip().lstrip('#') for o in stored+shopify_orders}
+    stored.extend(h for h in historical if str(h['number']).strip().lstrip('#') not in seen)
     purchases=purchase_records(stored,shopify_orders)
     # All active-account payments, including payments that closed a purchase. Archived imports stay excluded.
     history=[{'date':r['date'],'amount':r['amount'],'kind':'payment','method':r['method'],'number':r['number'] if r['source']!='cxc' else 'Abonos realizados'}

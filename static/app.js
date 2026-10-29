@@ -75,6 +75,10 @@ function clientPurchaseRecords(cid){
   return {...r,items:detailed(r)||!available?r.items:available.items,local:linked.length===1?linked[0]:null};
  });
  for(const o of stored.filter(o=>!remote.some(r=>same(o,r))&&(o.status==='active'||detailed(o))))entries.push({...o,previous:o.status==='restructured',local:o.status==='active'?o:null});
+ for(const h of (S.purchase_history||[]).filter(h=>h.client_id===cid&&h.kind==='purchase')){
+  const historical={number:h.number,purchased:h.date,total:h.amount,items:h.items,previous:true};
+  if(detailed(historical)&&!entries.some(o=>normalized(o.number)===normalized(h.number)))entries.push(historical);
+ }
  return entries.sort((a,b)=>String(b.purchased).localeCompare(String(a.purchased))||String(a.number).localeCompare(String(b.number)));
 }
 function clientPurchaseCard(o){
