@@ -187,3 +187,7 @@
 - Menú Comprobantes sustituido por Pedidos Shopify, abre pedidos pendientes con contador correspondiente. Eliminado botón Shopify duplicado de Clientas; comprobantes conservados en fichas.
 - Revisados bloqueos de Agregar al saldo: vínculo ausente, historial duplicado, diferencias locales y validación de importes. Las capturas no contienen aviso legible; caso real sigue pendiente de identificar con texto exacto. No se alteraron saldos ni se eliminaron validaciones.
 - Validación local: suite Python y resumen anual Node y sintaxis JS ejecutadas. Publicación Render pendiente.
+
+
+## Cierre de diferencias con saldo existente
+La revisión de un pedido con compra local permite conservar el saldo registrado y cerrar la revisión. Usa el endpoint existente de revisión con observación y fingerprint; no cambia compras ni abonos. Validación: 124 pruebas Python, resumen anual Node y sintaxis app.js correctas. No se incluyen datos de clientas en el código.
