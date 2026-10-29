@@ -6,7 +6,10 @@ import app as a
 from shopify_pending import pending_record
 
 class PendingShopifyTests(unittest.TestCase):
+    def tearDown(self):
+        with a.db(True) as c:c.execute('DELETE FROM client_codes')
     def setUp(self):
+        with a.db(True) as c:c.execute('DELETE FROM client_codes')
         base.FinanceTests.setUp(self)
         self.order={'id':'gid://shopify/Order/6437','name':'#6437','createdAt':'2026-10-26T16:28:00Z',
                     'displayFinancialStatus':'PENDING','cancelledAt':None,
