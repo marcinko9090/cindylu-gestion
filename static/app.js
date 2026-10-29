@@ -90,6 +90,7 @@ function clientPurchaseDetails(cid){
  return `<section class="card client-purchase-details"><div class="card-head"><h2>Compras</h2><button class="outline" data-action="sync">Actualizar productos de Shopify</button></div>${entries.length?entries.map(clientPurchaseCard).join(''):'<p class="subtle">Todavía no hay productos vinculados a esta ficha. Actualiza Shopify; si el pedido está en Pedidos de Shopify, vincúlalo a esta clienta para mostrar aquí su detalle.</p>'}</section>`;
 }
 function pendingShopifyOrders(){return S.settings?.shopify_pending_orders||[];}
+function shopifyDebtAdded(r){return S.orders.some(o=>o.shopify_id===r.shopify_id&&o.source==='shopify_confirmed');}
 function pendingShopifyRow(r,index,inFicha=false){
  const cl=S.clients.find(c=>c.id===r.client_id);
  if(inFicha)return clientPurchaseCard(r);
@@ -102,10 +103,10 @@ function shopifyPendingClient(cid){
  return `<section class="card"><div class="card-head"><h3>Pedidos pendientes en Shopify</h3></div><p class="subtle">Productos de los pedidos que Shopify mantiene pendientes. Los abonos y el saldo de tu ficha se conservan según Excel; estos importes no se suman de nuevo.</p>${list.map(r=>pendingShopifyRow(r,r.index,true)).join('')}</section>`;
 }
 function shopifyPendingView(){
- const q=norm(shopifyPendingQuery).trim(),all=pendingShopifyOrders();
+ const q=norm(shopifyPendingQuery).trim(),all=pendingShopifyOrders().map((r,index)=>({...r,index})).filter(r=>!shopifyDebtAdded(r));
  const tagsFor=r=>{const tags=tagLabels(r.tags||[]),client=S.clients.find(c=>c.id===r.client_id);return tags.length?tags:client?clientTags(client):['Sin etiquetas'];};
  const tagOptions=[...new Map(all.flatMap(r=>tagsFor(r)).map(t=>[norm(t).replace(/\s+/g,' ').trim(),t])).entries()].sort((a,b)=>a[1].localeCompare(b[1],'es')); 
- const list=all.map((r,index)=>({...r,index})).filter(r=>(!workplaceFilter||tagsFor(r).some(t=>norm(t).replace(/\s+/g,' ').trim()===workplaceFilter))&&(!q||norm(r.client_name+' '+r.number+' '+r.phone+' '+tagsFor(r).join(' ')+' '+(S.clients.find(c=>c.id===r.client_id)?.name||'')).includes(q))).sort((a,b)=>b.outstanding-a.outstanding||a.client_name.localeCompare(b.client_name,'es'));
+ const list=all.filter(r=>(!workplaceFilter||tagsFor(r).some(t=>norm(t).replace(/\s+/g,' ').trim()===workplaceFilter))&&(!q||norm(r.client_name+' '+r.number+' '+r.phone+' '+tagsFor(r).join(' ')+' '+(S.clients.find(c=>c.id===r.client_id)?.name||'')).includes(q))).sort((a,b)=>b.outstanding-a.outstanding||a.client_name.localeCompare(b.client_name,'es'));
  return `<section class="card"><h2>Clientas con pedidos pendientes en Shopify</h2>${clientDirectoryTabs()}<p>Compras y productos desde Shopify. Los abonos se consultan en la ficha vinculada y se mantienen según Excel.</p><p class="info-box">Por conciliar con la deuda actual. El saldo que Shopify muestra puede incluir abonos ya anotados en Excel; no se suma automáticamente a tu cartera.</p><label>Filtrar por etiquetas<select id="workplace-filter"><option value="">Todas las etiquetas</option>${tagOptions.map(([key,label])=>`<option value="${esc(key)}" ${workplaceFilter===key?'selected':''}>${esc(label)}</option>`).join('')}</select></label><label>Buscar clienta o pedido<input id="shopify-pending-search" value="${esc(shopifyPendingQuery)}" placeholder="Nombre, teléfono o número de pedido…"></label><div class="form-actions"><button class="outline" data-action="sync">Actualizar desde Shopify</button></div>${S.settings?.sync_at?`<small>Última consulta: ${esc(new Date(S.settings.sync_at).toLocaleString('es-CL'))}</small>`:''}</section><section class="card"><h3>${list.length} pedidos pendientes</h3>${list.map(r=>pendingShopifyRow(r,r.index)).join('')||'<p class="subtle">No hay pedidos disponibles en esta vista. Actualiza desde Shopify para consultar los pedidos accesibles.</p>'}</section>`;
 }
 function linkPendingClientModal(index){
@@ -150,7 +151,7 @@ function clientDirectory(mode=clientDebtView){
 }
 function clientDirectoryTabs(){
  const debt=S.clients.filter(c=>balance(c.id)>0).length,review=(S.settings?.shopify_review_orders||[]).filter(r=>r.status==='pending').length;
- return `<div class="form-actions client-directory-tabs" role="group" aria-label="Clientas por saldo">${[['debt','Clientas con deuda',debt],['no-debt','Clientas sin deuda',S.clients.length-debt],['shopify','Pedidos de Shopify',pendingShopifyOrders().length],['review','Por revisar',review]].map(([key,label,count])=>`<button type="button" class="${clientDebtView===key?'primary':'outline'}" data-directory-debt="${key}" aria-pressed="${clientDebtView===key}">${label} (${count})</button>`).join('')}</div>`;
+ return `<div class="form-actions client-directory-tabs" role="group" aria-label="Clientas por saldo">${[['debt','Clientas con deuda',debt],['no-debt','Clientas sin deuda',S.clients.length-debt],['shopify','Pedidos de Shopify',pendingShopifyOrders().filter(r=>!shopifyDebtAdded(r)).length],['review','Por revisar',review]].map(([key,label,count])=>`<button type="button" class="${clientDebtView===key?'primary':'outline'}" data-directory-debt="${key}" aria-pressed="${clientDebtView===key}">${label} (${count})</button>`).join('')}</div>`;
 }
 function clientList(){
  if(clientDebtView==='shopify')return shopifyPendingView();
