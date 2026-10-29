@@ -32,23 +32,23 @@ function ledgerDateKey(value){
  return ['year','month','day'].map(k=>parts.find(p=>p.type===k).value).join('-');
 }
 function clientLedger(cid,compact=false){
- const accountOrders=active(cid).filter(o=>o.source==='cxc'),purchases=active(cid).filter(o=>o.source!=='cxc').slice().sort((a,b)=>String(a.purchased).localeCompare(String(b.purchased))||a.id-b.id),ids=new Set([...purchases,...accountOrders].map(o=>o.id));
- const all=orders(cid),allIds=new Set(all.map(o=>o.id)),lookup=new Map(all.map(o=>[o.id,o]));
- const allPayments=[...S.payments.filter(p=>ids.has(p.order_id)&&!p.reversed),...CindyHistory.payments(S,cid)].sort((a,b)=>String(a.date||'9999').localeCompare(String(b.date||'9999'))||(a.id||0)-(b.id||0));
- const firstPurchase=clientPurchaseRecords(cid).map(o=>ledgerDateKey(o.purchased)).filter(Boolean).sort()[0]||'';
- const earlierPayments=allPayments.filter(p=>firstPurchase&&ledgerDateKey(p.date)&&ledgerDateKey(p.date)<firstPurchase);
- const payments=allPayments.filter(p=>!earlierPayments.includes(p));
- const previous=[...purchases,...accountOrders].filter(o=>o.base_paid>0).map(o=>({order_id:o.id,amount:o.base_paid,previous:true}));
- const archivedOrders=all.filter(o=>o.status!=='active').sort((a,b)=>String(a.purchased).localeCompare(String(b.purchased))||a.id-b.id);
- const archivedPayments=S.payments.filter(p=>allIds.has(p.order_id)&&(p.reversed||!ids.has(p.order_id))).sort((a,b)=>String(a.date).localeCompare(String(b.date))||a.id-b.id);
- const t=totals(cid);
- return `<section class="card client-ledger" aria-label="Cuenta de la clienta">${!compact&&purchases.length?`<div class="card-head"><h3>Compras</h3></div><ul class="ledger-purchases">${purchases.map(o=>ledgerOrderRow(o)).join('')}</ul>`:''}
+  const accountOrders=active(cid).filter(o=>o.source==='cxc'),purchases=active(cid).filter(o=>o.source!=='cxc').slice().sort((a,b)=>String(a.purchased).localeCompare(String(b.purchased))||a.id-b.id),ids=new Set([...purchases,...accountOrders].map(o=>o.id));
+  const allOrders=all(cid),allIds=new Set(allOrders.map(o=>o.id)),lookup=new Map(allOrders.map(o=>[o.id,o]));
+  const allPayments=[...S.payments.filter(p=>ids.has(p.order_id)&&!p.reversed),...CindyHistory.payments(S,cid)].sort((a,b)=>String(a.date||'9999').localeCompare(String(b.date||'9999'))||(a.id||0)-(b.id||0));
+  const firstPurchase=clientPurchaseRecords(cid).map(o=>ledgerDateKey(o.purchased)).filter(Boolean).sort()[0]||'';
+  const earlierPayments=allPayments.filter(p=>firstPurchase&&ledgerDateKey(p.date)&&ledgerDateKey(p.date)<firstPurchase);
+  const payments=allPayments.filter(p=>!earlierPayments.includes(p));
+  const previous=[...purchases,...accountOrders]
+    .filter(o=>o.base_paid>0&&(!firstPurchase||!ledgerDateKey(o.purchased)||ledgerDateKey(o.purchased)>=firstPurchase))
+    .map(o=>({order_id:o.id,amount:o.base_paid,previous:true}));
+  const archivedOrders=allOrders.filter(o=>o.status!='active'&&(!firstPurchase||!ledgerDateKey(o.purchased)||ledgerDateKey(o.purchased)>=firstPurchase)).sort((a,b)=>String(a.purchased).localeCompare(String(b.purchased))||a.id-b.id);
+  const archivedPayments=S.payments.filter(p=>allIds.has(p.order_id)&&(p.reversed||!ids.has(p.order_id))&&(!firstPurchase||!ledgerDateKey(p.date)||ledgerDateKey(p.date)>=firstPurchase)).sort((a,b)=>String(a.date).localeCompare(String(b.date))||a.id-b.id);
+  const t=totals(cid);
+  return `<section class="card client-ledger" aria-label="Cuenta de la clienta">${!compact&&purchases.length?`<div class="card-head"><h3>Compras</h3></div><ul class="ledger-purchases">${purchases.map(o=>ledgerOrderRow(o)).join('')}</ul>`:''}
 
-  <section class="ledger-payments"><h3>Abonos realizados</h3>${payments.length||previous.length?`<div class="table-scroll"><table><thead><tr><th>Fecha de pago</th><th>Compra</th><th>Monto</th><th><span class="sr-only">Acciones</span></th></tr></thead><tbody>${payments.map(p=>ledgerPaymentRow(p,lookup.get(p.order_id))).join('')}${previous.map(p=>ledgerPaymentRow(p,lookup.get(p.order_id))).join('')}</tbody></table></div>`:'<p class="subtle ledger-empty">Todavía no hay pagos registrados.</p>'}</section>
-  ${earlierPayments.length?`<details class="ledger-archive"><summary>Abonos anteriores a las compras mostradas</summary><div class="table-scroll"><table><thead><tr><th>Fecha de pago</th><th>Compra</th><th>Monto</th><th>Acciones</th></tr></thead><tbody>${earlierPayments.map(p=>ledgerPaymentRow(p,lookup.get(p.order_id))).join('')}</tbody></table></div></details>`:''}
+<section class="ledger-payments"><h3>Abonos realizados</h3>${payments.length||previous.length?`<div class="table-scroll"><table><thead><tr><th>Fecha de pago</th><th>Compra</th><th>Monto</th><th><span class="sr-only">Acciones</span></th></tr></thead><tbody>${payments.map(p=>ledgerPaymentRow(p,lookup.get(p.order_id))).join('')}${previous.map(p=>ledgerPaymentRow(p,lookup.get(p.order_id))).join('')}</tbody></table></div>`:'<p class="subtle ledger-empty">Todavía no hay pagos registrados.</p>'}</section>
   <div class="ledger-account-total"><div class="total-row final ledger-current-balance"><span>Saldo vigente</span><strong>${money(t.balance)}</strong></div></div>
-  ${archivedOrders.length||archivedPayments.length?`<details class="ledger-archive"><summary>Registros anteriores y anulados</summary>${archivedOrders.length?`<h4>Compras anteriores o anuladas</h4><ul class="ledger-purchases">${archivedOrders.map(o=>ledgerOrderRow(o,true)).join('')}</ul>`:''}${archivedPayments.length?`<h4>Pagos de registros anteriores o anulados</h4><div class="table-scroll"><table><thead><tr><th>Fecha de pago</th><th>Compra</th><th>Monto</th><th><span class="sr-only">Acciones</span></th></tr></thead><tbody>${archivedPayments.map(p=>ledgerPaymentRow(p,lookup.get(p.order_id),true)).join('')}</tbody></table></div>`:''}</details>`:''}
- </section>`;
+  ${archivedOrders.length||archivedPayments.length?`<details class="ledger-archive"><summary>Registros anteriores y anulados</summary><div class="table-scroll"><table><thead><tr><th>Fecha</th><th>Detalle</th><th>Monto</th></tr></thead><tbody>${archivedOrders.map(o=>`<tr><td>${fmtDate(o.purchased)}</td><td>Compra #${esc(o.number||o.id)} (${esc(o.status)})</td><td>${money(o.total)}</td></tr>`).join('')}${archivedPayments.map(p=>`<tr><td>${fmtDate(p.date)}</td><td>Abono anulado/anterior</td><td>${money(p.amount)}</td></tr>`).join('')}</tbody></table></div></details>`:''}</section>`;
 }
 function detail(){
  const cl=S.clients.find(c=>c.id===selected);if(!cl){selected=null;return clientList();}
