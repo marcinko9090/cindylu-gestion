@@ -391,7 +391,7 @@ def media(rid):
 def config():
     d=request.get_json()
     with db(True) as c:
-        for k in ('auto_reply','sending','payment_notify','payment_text','reply_text','template','template_language','statement_template','statement_language','shopify_domain','shopify_credit_mode','explain_intro','explain_bank','explain_outro','explain_show_summary','explain_show_payments','explain_show_installments','explain_show_bank'):
+        for k in ('auto_reply','sending','payment_notify','payment_text','reply_text','template','template_language','statement_template','statement_language','shopify_domain','shopify_credit_mode','whatsapp_statement_text','explain_intro','explain_bank','explain_outro','explain_show_summary','explain_show_payments','explain_show_installments','explain_show_bank'):
             if k in d:setval(c,k,bool(d[k]) if k in ('auto_reply','sending','payment_notify','explain_show_summary','explain_show_payments','explain_show_installments','explain_show_bank') else str(d[k])[:1000])
         if 'mark_seen_order_id' in d:
             seen=list(settings(c).get('seen_new_orders') or [])

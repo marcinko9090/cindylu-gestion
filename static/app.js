@@ -208,14 +208,23 @@ function adjustModal(oid){const o=S.orders.find(x=>x.id===oid);if(!o)return;cons
 
 function shareStatementModal(cid){
  const cl=S.clients.find(c=>c.id===cid);if(!cl)return;
- const cfg=S.settings||{},replace=t=>String(t).replace(/\{nombre\}/gi,cl.name.split(' ')[0]).replace(/\{saldo\}/gi,money(balance(cid)));
- const message=[replace(cfg.explain_intro||'Hola, {nombre}. Te compartimos tu estado de cuenta de TIENDA CINDY LÚ.'),'Saldo vigente: '+money(balance(cid)),cfg.explain_bank||'',replace(cfg.explain_outro||'Cualquier duda, escríbenos y lo revisamos juntas.')].filter(Boolean).join('\n\n');
+ const cfg=S.settings||{},personalize=t=>String(t).replace(/\{nombre\}/gi,cl.name.split(' ')[0]).replace(/\{saldo\}/gi,money(balance(cid)));
+ const template=cfg.whatsapp_statement_text??[cfg.explain_intro||'Hola, {nombre}. Te compartimos tu estado de cuenta de TIENDA CINDY LÚ.','Saldo vigente: {saldo}',cfg.explain_bank||'',cfg.explain_outro||'Cualquier duda, escríbenos y lo revisamos juntas.'].filter(Boolean).join('\n\n');
  modal('Enviar estado de cuenta por WhatsApp',`
  <p><strong>${esc(cl.name)}</strong> · ${esc(cl.phone||'Sin teléfono')}</p>
- <label>Mensaje editable<textarea id="share-statement-text" rows="7">${esc(message)}</textarea></label>
- <p>Descarga el PDF y abre el chat de la clienta. El mensaje aparecerá preparado; adjunta el PDF descargado desde el clip de WhatsApp y revisa antes de enviar.</p>
+ <label>Mensaje para todas las clientas<textarea id="share-statement-text" rows="7">${esc(template)}</textarea></label>
+ <p class="subtle">Usa {nombre} y {saldo}: se reemplazan automáticamente con los datos de cada clienta.</p>
+ <button type="button" class="outline" id="share-statement-save">Guardar mensaje para todas</button>
+ <p id="share-statement-status" role="status"></p>
+ <strong>Vista previa para ${esc(cl.name)}</strong>
+ <p id="share-statement-preview" style="white-space:pre-wrap"></p>
+ <p>Descarga el PDF y abre el chat de la clienta. Adjunta el PDF descargado desde el clip de WhatsApp y revisa antes de enviar.</p>
  <div class="form-actions"><a class="outline" href="/api/clients/${cid}/statement.pdf" download>1. Descargar PDF</a><button type="button" class="primary" id="share-statement-open">2. Abrir WhatsApp de la clienta</button></div>`);
- $('#share-statement-open').onclick=()=>openClientWhatsApp(cid,$('#share-statement-text').value);
+ const input=$('#share-statement-text'),preview=$('#share-statement-preview'),status=$('#share-statement-status'),save=$('#share-statement-save');
+ const update=()=>{preview.textContent=personalize(input.value);};update();
+ input.oninput=()=>{update();status.textContent='Cambios sin guardar. Guarda el mensaje para aplicarlo a todas las clientas.';};
+ save.onclick=async()=>{const value=input.value;if(!value.trim()){status.textContent='Escribe un mensaje antes de guardar.';return;}save.disabled=true;try{await api('settings',{whatsapp_statement_text:value});S.settings.whatsapp_statement_text=value;status.textContent=input.value===value?'Mensaje guardado para todas las clientas.':'Hay nuevos cambios sin guardar.';}catch(e){status.textContent='No se pudo guardar: '+e.message;}finally{save.disabled=false;}};
+ $('#share-statement-open').onclick=()=>openClientWhatsApp(cid,personalize(input.value));
 }
 
 function openClientWhatsApp(cid,message=null){
