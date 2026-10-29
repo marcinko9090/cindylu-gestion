@@ -83,7 +83,7 @@ class PendingShopifyTests(unittest.TestCase):
         paid=copy.deepcopy(self.order);paid['displayFinancialStatus']='PAID';paid['totalOutstandingSet']['shopMoney']['amount']='0'
         self.sync([paid]);self.assertEqual(self.records(),[])
 
-if __name__=='__main__':unittest.main()
+
 
     def test_existing_order_number_links_despite_different_name(self):
         with a.db(True) as c:
@@ -101,3 +101,5 @@ if __name__=='__main__':unittest.main()
             c.execute("INSERT INTO orders(client_id,number,purchased,total,items,updated) VALUES(?,'#6437','2026-10-26',1,'[]',?)",(cid,a.now()))
             result=pending_record(c,self.order,a.phone,a.now(),{})
             self.assertIsNone(result['client_id'])
+
+if __name__=='__main__':unittest.main()
