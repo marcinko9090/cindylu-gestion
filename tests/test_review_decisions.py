@@ -44,3 +44,16 @@ class DecisionTests(unittest.TestCase):
             with a.db(True) as c:
                 row={**self.row,**change};a.setval(c,'shopify_review_orders',[row]);a.setval(c,'shopify_pending_orders',[row])
             self.assertEqual(self.resolve('debt').status_code,400)
+
+    def test_zero_shopify_balance_requires_explicit_full_debt_confirmation(self):
+        with a.db(True) as c:
+            row={**self.row,'outstanding':'0','financial_status':'PAID'}
+            a.setval(c,'shopify_review_orders',[row]);a.setval(c,'shopify_pending_orders',[row])
+        self.assertEqual(self.resolve('debt').status_code,400)
+        self.assertEqual(self.resolve('debt',confirm_full_debt=True,confirmed_total='4000').status_code,400)
+        self.assertEqual(self.resolve('debt',confirm_full_debt=True,confirmed_total='5000').status_code,200)
+        self.assertEqual(self.resolve('debt',confirm_full_debt=True,confirmed_total='5000').status_code,200)
+        with a.db() as c:
+            order=a.one(c,'SELECT * FROM orders WHERE shopify_id=?',(self.row['shopify_id'],))
+            self.assertEqual(a.balance(c,order['id']),5000)
+            self.assertEqual(a.settings(c)['shopify_pending_orders'],[])

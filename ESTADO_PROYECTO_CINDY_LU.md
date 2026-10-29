@@ -173,3 +173,11 @@
 
 - Buscar clienta y sus resultados ahora aparecen antes de Lugar de cobro y su lista, en todos los tamaños de pantalla.
 - Cambio solo de orden visual/DOM; sin cambios de datos. Verificado con sintaxis JS, pruebas Node de terreno y resumen anual y 123 pruebas Python satisfactorias. Publicación en Render pendiente de comprobar.
+
+
+## Sesión 29-10-2026 · bloqueo Agregar al saldo
+
+- Captura reporta fallo al confirmar pedido; texto del aviso ilegible. Inspección identifica rechazo de outstanding=0 incluso al decidir deuda expresamente.
+- Para pedidos nuevos con saldo Shopify cero, modal ofrece confirmación explícita de que el total sigue pendiente y no está ya incluido. Servidor exige total confirmado igual al vigente; conserva protección de compras existentes, históricos, negativos y reintentos.
+- Errores visibles dentro del modal además del aviso temporal. No se modificaron datos de producción ni se confirmó la causa exacta del pedido de la captura.
+- Validación: 124 pruebas Python, resumen anual Node, modal de revisión Node y sintaxis JS satisfactorios. Despliegue Render y resolución del caso real pendientes de comprobar.

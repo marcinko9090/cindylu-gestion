@@ -788,12 +788,16 @@ def resolve_shopify_review(c, d):
     else:
         if item.get('currency')!='CLP':raise ValueError('Revisa la moneda del pedido antes de agregarlo.')
         total=amount(item['total']);pending=amount(item['outstanding'])
+        if pending==0 and d.get('confirm_full_debt') is True:
+            if amount(d.get('confirmed_total'))!=total:raise ValueError('El importe confirmado cambió. Vuelve a revisar la compra.')
+            pending=total
         if not 0<pending<=total:raise ValueError('El pedido no tiene un saldo pendiente válido. Revisa sus montos.')
         snapshot=next((r for r in cfg.get('shopify_pending_orders',[]) if r['shopify_id']==sid),{})
         cid=item.get('client_id') or snapshot.get('client_id')
         if not cid:raise ValueError('Vincula el pedido a la ficha correcta desde Pedidos de Shopify y vuelve a revisar.')
         one(c,'SELECT id FROM clients WHERE id=?',(cid,))
         if existing:
+            if amount(item['outstanding'])==0:raise ValueError('La compra ya existe en la ficha. Revisa sus abonos antes de volver a agregarla.')
             if existing['client_id']!=cid or existing['status']!='active' or existing['total']!=total or existing['review']:
                 raise ValueError('La compra existente tiene diferencias. Revisa Ajustar compra en su ficha antes de incorporarla.')
         else:

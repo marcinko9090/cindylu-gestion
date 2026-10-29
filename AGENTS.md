@@ -81,3 +81,5 @@
 - Cobro en terreno also allows direct client name/phone search before choosing a workplace. Keep search visible initially, normalize accents/case, show workplace and phone to distinguish people, and set the workplace on explicit client selection. An explicitly selected workplace continues to filter results. Preserve per-purchase abonos, pending-operation locks and optional WhatsApp confirmations.
 
 - In Cobro en terreno, always place the client search and its results above the workplace search and results, on mobile and desktop.
+
+- Review debt decisions for new orders whose Shopify outstanding is zero require an explicit full-total debt checkbox and matching confirmed_total; never infer a local abono from Shopify paid status. Keep existing local purchases, historical duplicate guards, negative amount rejection and fingerprint/idempotency checks. Display review errors inside the dialog.
