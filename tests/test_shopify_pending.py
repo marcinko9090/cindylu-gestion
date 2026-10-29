@@ -84,3 +84,20 @@ class PendingShopifyTests(unittest.TestCase):
         self.sync([paid]);self.assertEqual(self.records(),[])
 
 if __name__=='__main__':unittest.main()
+
+    def test_existing_order_number_links_despite_different_name(self):
+        with a.db(True) as c:
+            c.execute("UPDATE orders SET number='#6437' WHERE id=?",(self.oid,))
+            remote=copy.deepcopy(self.order)
+            remote['customer']={'displayName':'Otro nombre en Shopify'}
+            result=pending_record(c,remote,a.phone,a.now(),{})
+            self.assertEqual(result['client_id'],self.cid)
+            self.assertEqual(result['match'],'order_number')
+
+    def test_duplicate_order_number_across_clients_stays_unlinked(self):
+        with a.db(True) as c:
+            c.execute("UPDATE orders SET number='#6437' WHERE id=?",(self.oid,))
+            cid=c.execute("INSERT INTO clients(name,phone,email) VALUES('Otra persona','','')").lastrowid
+            c.execute("INSERT INTO orders(client_id,number,purchased,total,items,updated) VALUES(?,'#6437','2026-10-26',1,'[]',?)",(cid,a.now()))
+            result=pending_record(c,self.order,a.phone,a.now(),{})
+            self.assertIsNone(result['client_id'])

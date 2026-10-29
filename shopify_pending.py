@@ -13,6 +13,14 @@ def full_name(value):
     value=''.join(ch for ch in unicodedata.normalize('NFD',str(value or '').casefold()) if not unicodedata.combining(ch))
     return ' '.join(re.findall(r'[^\W_]+',value,flags=re.UNICODE))
 
+
+def order_number_client(c,number):
+    key=str(number or '').strip().lstrip('#').strip()
+    if not key:return None,False
+    ids={r['client_id'] for r in c.execute("SELECT client_id FROM orders WHERE trim(ltrim(trim(number),'#'))=? AND source!='cxc'",(key,))}
+    ids.update(r['client_id'] for r in c.execute("SELECT client_id FROM purchase_history WHERE trim(ltrim(trim(number),'#'))=? AND kind='purchase'",(key,)))
+    return (next(iter(ids)) if len(ids)==1 else None),bool(ids)
+
 def pending_record(c,order,clean_phone,stamp,links):
     if order.get('cancelledAt') or order.get('displayFinancialStatus') not in ('PENDING','PARTIALLY_PAID'):
         return None
@@ -53,6 +61,11 @@ def pending_record(c,order,clean_phone,stamp,links):
                 client_id=named[0]['id'];match='name'
     if manual.get('identity')==identity and c.execute('SELECT 1 FROM clients WHERE id=?',(manual.get('client_id'),)).fetchone():
         client_id=manual['client_id'];match='manual'
+    numbered,has_number=order_number_client(c,order.get('name'))
+    valid_manual=manual.get('identity')==identity and c.execute('SELECT 1 FROM clients WHERE id=?',(manual.get('client_id'),)).fetchone()
+    if has_number and not valid_manual:
+        client_id=numbered
+        match='order_number' if numbered else ''
     numeric=str(order['id']).rsplit('/',1)[-1]
     return {'shopify_id':order['id'],'number':str(order.get('name') or ''),'purchased':order.get('createdAt',''),
             'client_name':name,'customer_id':sid,'phone':phone,'email':email,'identity':identity,

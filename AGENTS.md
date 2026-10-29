@@ -69,3 +69,5 @@
 - In client fichas and PDFs, hide dated abonos earlier than the earliest displayed purchase (Chile date). Keep them in collapsed ficha history, preserve unknown-date payments and all payments when no dated purchase is shown. This is a display filter only: never delete records, assign payments to orders by date, or recalculate balances.
 
 - Refreshing an authenticated workspace keeps the user signed in and restores her current section/client. Return to credentials only after more than three hours without user interaction, or explicit logout/server session expiry. Background polling and reloads do not extend an expired activity period. Show the store logo on authenticated reload, with the travelling reflection clipped inside its original golden frame; apply the same clipping to the login logo.
+
+- Match descriptive Shopify products by unique existing order number across orders and purchase_history before contact/name fallback. Preserve explicit manual links and leave numbers shared across clients for review. Historical enrichment retains total/cancellation checks. Never change debt or payments from product linkage.

@@ -141,8 +141,8 @@ def enrich_history(c,o,items,total,remote_phone,remote_email,sid):
     if len(candidates)!=1:return False
     h=candidates[0]
     if h['amount']!=total or o.get('cancelledAt'):return False
-    if sid and h['shopify_id'] and sid!=h['shopify_id']:return False
-    if h['phone'] and remote_phone and h['phone']!=remote_phone:return False
-    if not ((sid and sid==h['shopify_id']) or (remote_phone and remote_phone==h['phone']) or (remote_email and remote_email==str(h['email']).lower())):return False
+    from shopify_pending import order_number_client
+    owner,_=order_number_client(c,number)
+    if owner!=h['client_id']:return False
     c.execute('UPDATE purchase_history SET items=? WHERE key=?',(json.dumps(items,ensure_ascii=False),h['key']))
     return True
