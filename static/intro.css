@@ -23,3 +23,13 @@
 @media(max-width:480px){.intro-logo{width:160px}.intro-brand{gap:8px}.intro-phrase{font-size:13px;max-width:290px}}
 @media(prefers-reduced-motion:reduce){.intro-brand,.intro-phrase,.intro-logo::after,.intro-halo{animation:none}.intro-brand{opacity:1;transform:none}.intro-logo::after,.intro-burst,.intro-ring{display:none}}
 @media print{.cindy-intro{display:none}}
+
+/* Keep the reflected light entirely inside the logo's original gold frame. */
+.intro-logo::after{inset:0;clip-path:inset(16% 23% 15% 21%);transform:none;animation:intro-framed-shine 12s linear infinite;background:linear-gradient(110deg,transparent 30%,#fff8d600 40%,#fffbe6da 49%,#fff 50%,#fff4c9b0 51%,transparent 61%);background-size:350% 100%}
+@keyframes intro-framed-shine{0%,14%{background-position:140% 50%;opacity:0}18%{opacity:1}42%{background-position:-40% 50%;opacity:1}47%,100%{background-position:-40% 50%;opacity:0}}
+.panel-logo-frame{position:relative;display:block;width:clamp(180px,25vw,300px);max-width:74vw;line-height:0;overflow:hidden}
+.panel-welcome .panel-logo-frame img{width:100%;max-width:100%;max-height:none}
+.panel-logo-frame::after{content:"";position:absolute;inset:0;clip-path:inset(16% 23% 15% 21%);pointer-events:none;background:linear-gradient(110deg,transparent 35%,#fff9dc00 43%,#fffbe6e0 49%,#fff 50%,#fff3c3c0 51%,transparent 59%);background-size:350% 100%;mix-blend-mode:soft-light;animation:panel-framed-shine 3.2s linear both}
+@keyframes panel-framed-shine{0%,12%{background-position:140% 50%;opacity:0}22%{opacity:1}80%{background-position:-40% 50%;opacity:1}100%{background-position:-40% 50%;opacity:0}}
+.panel-welcome.logo-fallback .panel-logo-frame{display:none}
+@media(prefers-reduced-motion:reduce){.intro-logo::after,.panel-logo-frame::after{display:none}}

@@ -243,27 +243,39 @@ assert.equal(nodes.get('#page-title').textContent,'Clientas');
 vm.runInContext("selected=1;render();",complete);
 assert(nodes.get('#content').innerHTML.includes('COMPRA #6437'));
 assert(nodes.get('#content').innerHTML.includes('id="client-payment-panel"'));
+vm.runInContext("S.orders.push({id:999,client_id:1,status:'cancelled',source:'excel',purchased:'2026-10-28',total:50,balance:0,items:[]});S.payments.push({id:999,order_id:999,reversed:true,date:'2026-10-28',amount:50});selected=1;render();",complete);
+assert(nodes.get('#content').innerHTML.includes('Registros anteriores y anulados'));
 console.log('Full app renders the unified directory, legacy navigation and client account without missing functions.');
 
 
 (async()=>{
  let refreshes=0,authScreens=0;
  complete.api=async()=>({authenticated:true,setup:false,csrf:'test'});
- complete.CindySeasons={apply(){}};
+ complete.CindySeasons={apply(){},welcome(){}};
  complete.CindyCalm={start(){},stop(){}};
  complete.showAuth=()=>{authScreens++};
  complete.refresh=async()=>{refreshes++};
  nodes.set('#welcome-video',{pause(){}});
  await vm.runInContext('start()',complete);
- assert.equal(authScreens,1,'Saved session must still show login');
- assert.equal(refreshes,0,'Do not fetch business data before explicit entry');
+ assert.equal(authScreens,0,'Active saved session remains signed in');
+ assert.equal(refreshes,1,'Active saved session loads the workspace');
  await vm.runInContext('start()',complete);
- assert.equal(refreshes,1,'Successful explicit login can enter the workspace');
+ assert.equal(refreshes,2,'Authenticated entry loads workspace');
  complete.api=async()=>({authenticated:false,setup:false});
  await vm.runInContext('start()',complete);
- assert.equal(authScreens,2,'Expired session returns to login');
- assert.equal(refreshes,1);
+ assert.equal(authScreens,1,'Expired session returns to login');
+ assert.equal(refreshes,2);
  assert(shell.includes('autocomplete="username"'));
  assert(shell.includes('autocomplete="current-password"'));
  console.log('Entry gate: saved sessions show login before loading data; successful login enters; expired sessions stay at login.');
 })().catch(error=>{console.error(error);process.exitCode=1;});
+
+{
+ let now=100000000,stored=String(now),expiredCount=0;const events={};
+ const ctx={Date:{now:()=>now},localStorage:{getItem:()=>stored,setItem:(k,v)=>{stored=v}},document:{hidden:false,addEventListener:(n,f)=>{events[n]=f}},window:{addEventListener(){}},setInterval(){}};
+ vm.runInNewContext(fs.readFileSync(require('node:path').join(__dirname,'../static/activity.js'),'utf8'),ctx);
+ const activity=ctx.window.CindyActivity;
+ activity.start(()=>expiredCount++);now+=2*3600000;events.pointerdown();now+=2*3600000;
+ assert.equal(activity.expired(),false,'Movement extends the active session across reloads');
+ now+=3600001;assert.equal(activity.expired(),true);events.pointerdown();assert.equal(expiredCount,1,'Expired movement locks before extending activity');
+}
