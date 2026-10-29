@@ -206,9 +206,10 @@ function buildClientExplanation(cid,customOpts=null){const cl=S.clients.find(c=>
 function adjustModal(oid){const o=S.orders.find(x=>x.id===oid);if(!o)return;const paid=S.payments.filter(p=>p.order_id===oid&&!p.reversed).reduce((n,p)=>n+p.amount,0);modal('Ajustar saldo · '+o.number,`<form><p class="info-box">Los abonos ya confirmados (${money(paid)}) se conservan.</p><div class="fields"><label>Total de la compra<input name="total" type="number" min="1" step="1" value="${o.total}" required></label><label>Pagos previos al registro<input name="base_paid" type="number" min="0" step="1" value="${o.base_paid}" required></label></div>${actions}</form>`,f=>api('orders/'+oid+'/adjust',{...data(f),count:0}));}
 
 
-function shareStatementModal(cid){
+async function shareStatementModal(cid){
  const cl=S.clients.find(c=>c.id===cid);if(!cl)return;
- const cfg=S.settings||{},personalize=t=>String(t).replace(/\{nombre\}/gi,cl.name.split(' ')[0]).replace(/\{saldo\}/gi,money(balance(cid)));
+ let statementBalance=balance(cid),statementUrl='';
+ const cfg=S.settings||{},personalize=t=>String(t).replace(/\{nombre\}/gi,cl.name.split(' ')[0]).replace(/\{saldo\}/gi,money(statementBalance));
  const template=cfg.whatsapp_statement_text??[cfg.explain_intro||'Hola, {nombre}. Te compartimos tu estado de cuenta de TIENDA CINDY LÚ.','Saldo vigente: {saldo}',cfg.explain_bank||'',cfg.explain_outro||'Cualquier duda, escríbenos y lo revisamos juntas.'].filter(Boolean).join('\n\n');
  modal('Enviar estado de cuenta por WhatsApp',`
  <p><strong>${esc(cl.name)}</strong> · ${esc(cl.phone||'Sin teléfono')}</p>
@@ -218,13 +219,16 @@ function shareStatementModal(cid){
  <p id="share-statement-status" role="status"></p>
  <strong>Vista previa para ${esc(cl.name)}</strong>
  <p id="share-statement-preview" style="white-space:pre-wrap"></p>
- <p>Descarga el PDF y abre el chat de la clienta. Adjunta el PDF descargado desde el clip de WhatsApp y revisa antes de enviar.</p>
- <div class="form-actions"><a class="outline" href="/api/clients/${cid}/statement.pdf" download>1. Descargar PDF</a><button type="button" class="primary" id="share-statement-open">2. Abrir WhatsApp de la clienta</button></div>`);
+ <p>El mensaje incluirá un enlace exclusivo al PDF, válido por 7 días. Quien reciba el enlace podrá descargar este estado de cuenta.</p><p id="share-link-status" role="status">Preparando enlace…</p>
+ <div class="form-actions"><button type="button" class="primary" id="share-statement-open" disabled>Abrir WhatsApp con mensaje y enlace al PDF</button></div>`);
  const input=$('#share-statement-text'),preview=$('#share-statement-preview'),status=$('#share-statement-status'),save=$('#share-statement-save');
- const update=()=>{preview.textContent=personalize(input.value);};update();
+ const body=()=>personalize(input.value)+(statementUrl?'\n\nTu estado de cuenta (PDF, enlace válido por 7 días):\n'+statementUrl:'');
+ const update=()=>{preview.textContent=body();};update();
  input.oninput=()=>{update();status.textContent='Cambios sin guardar. Guarda el mensaje para aplicarlo a todas las clientas.';};
  save.onclick=async()=>{const value=input.value;if(!value.trim()){status.textContent='Escribe un mensaje antes de guardar.';return;}save.disabled=true;try{await api('settings',{whatsapp_statement_text:value});S.settings.whatsapp_statement_text=value;status.textContent=input.value===value?'Mensaje guardado para todas las clientas.':'Hay nuevos cambios sin guardar.';}catch(e){status.textContent='No se pudo guardar: '+e.message;}finally{save.disabled=false;}};
- $('#share-statement-open').onclick=()=>openClientWhatsApp(cid,personalize(input.value));
+ const open=$('#share-statement-open'),linkStatus=$('#share-link-status');
+ open.onclick=()=>openClientWhatsApp(cid,body());
+ try{const result=await api('clients/'+cid+'/statement-link',{});if(!open.isConnected)return;statementBalance=result.balance;statementUrl=new URL(result.path,location.origin).href;update();open.disabled=false;linkStatus.textContent='PDF listo. Revisa el mensaje y pulsa el botón para abrir el chat.';}catch(e){if(linkStatus.isConnected)linkStatus.textContent='No se pudo preparar el enlace: '+e.message+'. Cierra esta ventana e inténtalo nuevamente.';}
 }
 
 function openClientWhatsApp(cid,message=null){

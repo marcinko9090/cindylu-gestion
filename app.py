@@ -84,6 +84,7 @@ def init():
         CREATE TABLE IF NOT EXISTS reminders(id INTEGER PRIMARY KEY,client_id INTEGER NOT NULL REFERENCES clients(id),at TEXT NOT NULL,body TEXT NOT NULL,status TEXT DEFAULT 'pending',error TEXT DEFAULT '');
         CREATE TABLE IF NOT EXISTS payment_notices(payment_id INTEGER PRIMARY KEY REFERENCES payments(id),client_id INTEGER NOT NULL REFERENCES clients(id),body TEXT NOT NULL,status TEXT NOT NULL,error TEXT DEFAULT '',created TEXT NOT NULL);
         CREATE TABLE IF NOT EXISTS statement_sends(id INTEGER PRIMARY KEY,operation TEXT UNIQUE NOT NULL,client_id INTEGER NOT NULL REFERENCES clients(id),digest TEXT NOT NULL,body TEXT NOT NULL,phone TEXT NOT NULL,balance INTEGER NOT NULL,path TEXT DEFAULT '',filename TEXT NOT NULL,status TEXT NOT NULL,wa_id TEXT UNIQUE,error TEXT DEFAULT '',created TEXT NOT NULL);
+        CREATE TABLE IF NOT EXISTS statement_links(token_hash TEXT PRIMARY KEY,pdf BLOB NOT NULL,expires INTEGER NOT NULL);
         CREATE TABLE IF NOT EXISTS audit(id INTEGER PRIMARY KEY,event TEXT,data TEXT,created TEXT);
         ''')
         cindy_import.init_schema(c)
@@ -150,11 +151,12 @@ def security():
         if origin and origin != public_url:
             return jsonify(error='Origen de solicitud no permitido.'),403
     if request.path in ('/','/api/session','/api/login','/api/setup','/api/health','/api/demo') or request.path.startswith('/static/') or request.path=='/webhooks/whatsapp':return
+    if request.endpoint=='shared_statement_pdf' and request.method in ('GET','HEAD'):return
     if not session.get('user'):return jsonify(error='Inicia sesión.'),401
     if request.method!='GET' and not hmac.compare_digest(request.headers.get('X-CSRF-Token',''),session.get('csrf','missing')):return jsonify(error='Sesión vencida. Actualiza la página.'),403
 @app.after_request
 def headers(r):
-    r.headers['X-Content-Type-Options']='nosniff';r.headers['X-Frame-Options']='DENY';r.headers['Referrer-Policy']='same-origin'
+    r.headers['X-Content-Type-Options']='nosniff';r.headers['X-Frame-Options']='DENY';r.headers['Referrer-Policy']='no-referrer'
     r.headers['Content-Security-Policy']="default-src 'self'; img-src 'self' data: blob:; style-src 'self' 'unsafe-inline'; script-src 'self'; connect-src 'self'; frame-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'"
     if not request.path.startswith('/static/'):r.headers['Cache-Control']='no-store'
     return r
@@ -219,6 +221,29 @@ def state():
         safe_cfg={k:v for k,v in cfg.items() if k!='shopify_token'}
         safe_cfg['has_shopify_token']=bool(cfg.get('shopify_token'))
         return jsonify(purchase_history=history,cxc_history=cxc_history,cxc_accounts=cxc_accounts,statement_sends=rows(c,'SELECT id,client_id,body,phone,balance,filename,status,wa_id,error,created FROM statement_sends ORDER BY id'),clients=clients,orders=orders,installments=ins,payments=rows(c,'SELECT * FROM payments ORDER BY id DESC'),allocations=allocs,receipts=rows(c,'SELECT id,client_id,filename,mime,status,created FROM receipts ORDER BY id DESC'),messages=rows(c,'SELECT * FROM messages ORDER BY id'),reminders=rows(c,'SELECT * FROM reminders ORDER BY at'),payment_notices=rows(c,'SELECT * FROM payment_notices ORDER BY payment_id DESC'),settings=safe_cfg,today=today(),season=season_for(),demo=DEMO,integrations={'shopify':shop_tok and not DEMO,'whatsapp':bool(os.getenv('WA_ACCESS_TOKEN') and os.getenv('WA_PHONE_NUMBER_ID') and os.getenv('WA_APP_SECRET')) and not DEMO,'shop':os.getenv('SHOPIFY_DOMAIN') or cfg.get('shopify_domain') or 'cindylu.myshopify.com'})
+@app.post('/api/clients/<int:cid>/statement-link')
+def create_statement_link(cid):
+    from statements import snapshot,pdf
+    token=secrets.token_urlsafe(32)
+    expires=int(time.time())+7*86400
+    with db(True) as c:
+        data=snapshot(c,cid,balance,dt.datetime.now(__import__('zoneinfo').ZoneInfo('America/Santiago')).strftime('%d/%m/%Y %H:%M'))
+        document=pdf(data).getvalue()
+        c.execute('DELETE FROM statement_links WHERE expires<=?',(int(time.time()),))
+        c.execute('INSERT INTO statement_links VALUES(?,?,?)',(hashlib.sha256(token.encode()).hexdigest(),document,expires))
+    return jsonify(path='/estado/'+token+'.pdf',expires=expires,balance=data['balance'])
+
+@app.get('/estado/<token>.pdf')
+def shared_statement_pdf(token):
+    if not re.fullmatch(r'[A-Za-z0-9_-]{43}',token):
+        return 'Enlace no disponible o vencido.',404
+    with db() as c:
+        row=c.execute('SELECT pdf FROM statement_links WHERE token_hash=? AND expires>?',(hashlib.sha256(token.encode()).hexdigest(),int(time.time()))).fetchone()
+    if not row:return 'Enlace no disponible o vencido.',404
+    response=send_file(io.BytesIO(row['pdf']),mimetype='application/pdf',as_attachment=True,download_name='Estado-de-cuenta-Cindy-Lu.pdf')
+    response.headers['X-Robots-Tag']='noindex, nofollow, noarchive'
+    return response
+
 @app.get('/api/clients/<int:cid>/statement.pdf')
 def statement_pdf(cid):
     from statements import snapshot,pdf
