@@ -650,9 +650,12 @@ def import_shop_order(c,o,allow_new=True):
     oid=c.execute('INSERT INTO orders(client_id,shopify_id,number,purchased,total,base_paid,items,source,status,remote,updated) VALUES(?,?,?,?,?,?,?,?,?,?,?)',(cid,o['id'],o['name'],o['createdAt'],total,base_paid,json.dumps(items,ensure_ascii=False),'shopify',status,snapshot,now())).lastrowid
     return 'created'
 def create_shopify_client_files(c):
-    from shopify_clients import create_missing
+    from shopify_clients import create_missing,incorporate_review_pending
     records=settings(c).get('shopify_pending_orders',[])
     result=create_missing(c,records,phone,amount,now())
+    reviews=settings(c).get('shopify_review_orders',[])
+    result['purchases_added']+=incorporate_review_pending(c,records,reviews,amount,now())
+    setval(c,'shopify_review_orders',reviews)
     setval(c,'shopify_pending_orders',records)
     if result['clients_created'] or result['purchases_added']:audit(c,'shopify_client_files_created',result)
     return result
@@ -709,12 +712,12 @@ def sync_shop():
                 old_tags={r['shopify_id']:r.get('tags',[]) for r in settings(c).get('shopify_pending_orders',[])}
                 for record in pending_orders:record['tags']=old_tags.get(record['shopify_id'],[])
             setval(c,'shopify_pending_orders',pending_orders)
-            create_shopify_client_files(c)
             setval(c,'shopify_tags_error',tags_error)
             if tag_customers is not None:
                 setval(c,'shopify_client_tags',shopify_tags.classify(c,tag_customers,phone,pending_orders))
                 setval(c,'shopify_tags_at',now())
             setval(c,'shopify_review_orders',merge_review_records(settings(c).get('shopify_review_orders',[]),review_queue,completed))
+            create_shopify_client_files(c)
             setval(c,'shopify_auto_sync',True);audit(c,'shopify_sync',summary)
         return summary
     finally:SYNC_LOCK.release()

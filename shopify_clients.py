@@ -51,3 +51,32 @@ def create_missing(c,records,clean_phone,amount,stamp):
         c.execute("INSERT INTO orders(client_id,shopify_id,number,purchased,total,base_paid,items,source,status,remote,updated) VALUES(?,?,?,?,?,?,?,'shopify_confirmed_new','active',?,?)",(cid,r['shopify_id'],r['number'],r['purchased'],total,total-pending,json.dumps(r['items'],ensure_ascii=False),remote,stamp))
         added+=1
     return {'clients_created':created,'purchases_added':added}
+
+def incorporate_review_pending(c,records,reviews,amount,stamp):
+    """Explicitly authorized pending reviews: add each unregistered order once."""
+    added=0
+    for r in records:
+        review=next((x for x in reviews if x['shopify_id']==r['shopify_id']),None)
+        if not review:continue
+        old=c.execute("SELECT * FROM orders WHERE shopify_id=?",(r['shopify_id'],)).fetchone()
+        if old:
+            if old['source'] in ('shopify_confirmed','shopify_confirmed_new') and old['client_id']==r.get('client_id'):
+                review.update(status='reviewed',note='Compra incorporada a la deuda de la clienta.',reviewed_at=stamp)
+            continue
+        if review.get('kind')!='new' or review.get('fingerprint')!=r.get('fingerprint'):continue
+        if r.get('financial_status') not in ('PENDING','PARTIALLY_PAID'):continue
+        cid=r.get('client_id')
+        if not cid or not c.execute('SELECT 1 FROM clients WHERE id=?',(cid,)).fetchone():continue
+        try:total=amount(r['total']);pending=amount(r['outstanding'])
+        except (ValueError,KeyError,TypeError):continue
+        if not 0<pending<=total:continue
+        key=str(r.get('number') or '').strip().lstrip('#').strip()
+        if not key:continue
+        if c.execute("SELECT 1 FROM orders WHERE trim(ltrim(trim(number),'#'))=?",(key,)).fetchone():continue
+        if c.execute("SELECT 1 FROM purchase_history WHERE trim(ltrim(trim(number),'#'))=? AND kind='purchase'",(key,)).fetchone():continue
+        remote=json.dumps({'total':total,'outstanding':pending,'cancelled':None,'items':r['items']},sort_keys=True,ensure_ascii=False)
+        oid=c.execute("INSERT INTO orders(client_id,shopify_id,number,purchased,total,base_paid,items,source,status,remote,updated) VALUES(?,?,?,?,?,?,?,'shopify_confirmed','active',?,?)",(cid,r['shopify_id'],r['number'],r['purchased'],total,total-pending,json.dumps(r['items'],ensure_ascii=False),remote,stamp)).lastrowid
+        c.execute('INSERT INTO audit(event,data,created) VALUES(?,?,?)',('shopify_review_debt_added',json.dumps({'order_id':oid,'client_id':cid,'shopify_id':r['shopify_id'],'added_balance':pending}),stamp))
+        review.update(status='reviewed',note='Compra incorporada a la deuda de la clienta.',reviewed_at=stamp)
+        added+=1
+    return added
