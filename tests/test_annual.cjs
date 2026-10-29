@@ -228,7 +228,7 @@ console.log('Unified Clientas navigation, dated purchase cards, no repeated name
 // Render the complete application (not only extracted functions) to catch broken navigation references.
 const nodes=new Map();
 for(const id of [...shell.matchAll(/\bid="([^"]+)"/g)].map(m=>m[1]))nodes.set('#'+id,{value:'',classList:{toggle(){},add(){},remove(){},contains(){return true;}},setAttribute(){},focus(){},querySelector(){return null;}});
-const complete={console,Intl,Date,Map,Set,JSON,Number,String,Array,Math,RegExp,Promise,crypto:{},setTimeout(){},clearTimeout(){},setInterval(){},localStorage:{getItem(){return null;}},matchMedia:()=>({matches:true}),window:{addEventListener(){}},
+const complete={console,Intl,Date,Map,Set,JSON,Number,String,Array,Math,RegExp,Promise,crypto:{},setTimeout(){},clearTimeout(){},setInterval(){},localStorage:{getItem(){return null;}},matchMedia:()=>({matches:true}),window:{addEventListener(){},scrollTo(){}},
  document:{querySelector:s=>nodes.get(s)||null,querySelectorAll:()=>[],addEventListener(){}},
  CindyField:{view:()=>'',bind(){}},CindyClientPayment:{view:()=>'<aside id="client-payment-panel"></aside>',bind(){},hasDraft:()=>false},
  CindyAnnual:{group},CindyCalm:{stop(){}},model};
