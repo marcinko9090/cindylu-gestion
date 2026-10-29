@@ -3,7 +3,10 @@ import test_app as base
 import app as a
 from shopify_clients import create_missing
 class ShopifyClientFilesTests(unittest.TestCase):
+    def tearDown(self):
+        with a.db(True) as c:c.execute('DELETE FROM client_codes')
     def setUp(self):
+        with a.db(True) as c:c.execute('DELETE FROM client_codes')
         base.FinanceTests.setUp(self)
         with a.db(True) as c:
             c.execute('DELETE FROM client_codes')
