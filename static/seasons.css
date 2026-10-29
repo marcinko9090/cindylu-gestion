@@ -81,10 +81,10 @@ body[data-season-variant="1"] .season-banner{border-radius:4px 18px 4px 18px}bod
 
 
 /* A quiet, non-blocking five-second note inside the private workspace. */
-.calm-message{position:fixed;z-index:140;top:max(88px,calc(env(safe-area-inset-top) + 70px));right:24px;max-width:min(340px,calc(100vw - 32px));padding:15px 21px;border:1px solid #cfb77f;border-radius:18px;background:#fffaf0f5;color:#54432a;box-shadow:0 8px 30px #8c6b2417;font-size:15px;line-height:1.5;text-align:center;pointer-events:none;opacity:0;animation:cindy-calm-note 5s ease both;}
-@keyframes cindy-calm-note{0%{opacity:0;transform:translateY(8px);filter:blur(3px)}16%,78%{opacity:1;transform:translateY(0);filter:blur(0)}100%{opacity:0;transform:translateY(-6px);filter:blur(4px)}}
+.calm-message{position:fixed;z-index:140;top:max(88px,calc(env(safe-area-inset-top) + 70px));right:24px;max-width:min(340px,calc(100vw - 32px));padding:15px 21px;border:1px solid #cfb77f;border-radius:18px;background:#fffaf0f5;color:#54432a;box-shadow:0 8px 30px #8c6b2417;font-size:15px;line-height:1.5;text-align:center;pointer-events:none;opacity:0;animation:cindy-calm-note 7s ease both;}
+@keyframes cindy-calm-note{0%{opacity:0;transform:translateY(10px);filter:blur(2px)}10%,71%{opacity:1;transform:translate(0,0) rotate(0);filter:blur(0)}82%{opacity:1;transform:translate(-20px,-40px) rotate(-3deg)}94%{opacity:.8;transform:translate(25px,-65vh) rotate(5deg)}100%{opacity:0;transform:translate(60px,-130vh) rotate(8deg)}}
 @media(max-width:600px){.calm-message{right:16px;left:16px;margin:auto;font-size:14px;}}
-@media(prefers-reduced-motion:reduce){.calm-message{animation:cindy-calm-still 5s linear both;}}
+@media(prefers-reduced-motion:reduce){.calm-message{animation:cindy-calm-still 7s linear both;}}
 @keyframes cindy-calm-still{0%,100%{opacity:0}10%,85%{opacity:1}}
 
 
@@ -116,3 +116,12 @@ body[data-season-variant="1"] .season-banner{border-radius:4px 18px 4px 18px}bod
 .panel-welcome-text{display:none;font:42px Georgia,serif;letter-spacing:2px;color:#9b7735;text-shadow:0 0 24px #dfbb6650}
 .panel-welcome.logo-fallback .panel-welcome-brand img{display:none}
 .panel-welcome.logo-fallback .panel-welcome-text{display:block}
+
+/* Fairy dust travels with the note; its particles trail behind the flight. */
+.calm-message{isolation:isolate;overflow:visible}
+.calm-message>span:first-child{position:relative;z-index:1}
+.calm-dust{position:absolute;inset:-12px;pointer-events:none}
+.calm-dust i{position:absolute;left:calc(5% + var(--i)*8%);top:calc(10% + var(--i)*7%);width:5px;height:5px;border-radius:50%;background:#fff5cd;box-shadow:0 0 5px 2px #ebc565,0 0 13px #d8b15b;opacity:0;animation:cindy-fairy-dust 7s ease both;animation-delay:calc(var(--i)*35ms)}
+@keyframes cindy-fairy-dust{0%{opacity:0;transform:translate(0,8px) scale(.3)}15%,65%{opacity:.75;transform:translate(-5px,-5px) scale(.8)}73%{opacity:1;transform:translate(0,10px) scale(1)}88%{opacity:.85;transform:translate(-20px,80px) scale(.6)}100%{opacity:0;transform:translate(-45px,180px) scale(.1)}}
+@media(prefers-reduced-motion:reduce){.calm-dust{display:none}.calm-message{animation:cindy-calm-still 7s linear both}}
+@media print{.calm-message{display:none!important}}

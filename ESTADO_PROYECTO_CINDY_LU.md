@@ -141,3 +141,12 @@
 - Prueba de regresión tests/test_review_modal.cjs: apertura, monto CLP y envío de ambas decisiones con fingerprint; commit f2fe084370e2f4f876892c41ebb4d3d4481fcf54.
 - Validación: 122 pruebas Python, pruebas Node de resumen anual, prueba de modal y sintaxis JavaScript satisfactorias.
 - Sin cambios ni acceso a base de producción; no se requirió respaldo de datos. Publicación efectiva en Render pendiente de verificar.
+
+
+## Sesión 29-10-2026 · mensajes de calma y esfuerzo
+
+- Intervalo cambiado a cinco minutos de actividad visible; se conservan exclusión de inactividad, ventanas abiertas, pantalla de acceso y cierre de sesión.
+- 868 mensajes completos distintos, con índice persistente local en el navegador. No se reinicia al agotar el catálogo: se dejan de mostrar antes que repetir. Borrar datos del navegador o cambiar dispositivo reinicia ese historial; no hay sincronización entre dispositivos.
+- Cinco segundos de lectura y dos de vuelo ascendente con doce brillos dorados que acompañan la salida. Movimiento reducido elimina el vuelo y partículas. No modifica PDFs, mensajes a clientas ni datos contables.
+- Pruebas: 122 Python, resumen anual Node, sintaxis JS y tests de calma (intervalo, exclusiones, persistencia y catálogo completo sin repeticiones) satisfactorios.
+- Vista visual automatizada no disponible: falta ejecutable Chromium en el entorno. Despliegue Render y apariencia en dispositivo real pendientes de comprobar.
