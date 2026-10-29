@@ -57,7 +57,10 @@ function harness(){
  return {ctx,S,store,requests,reload,ordinaryPayment,clickPlace,clickClient,chooseOrder,enter,node:id=>nodes.get(id),html:()=>html,submit:()=>nodes.get('field-payment-form').onsubmit({preventDefault(){}}),network:v=>networkFailure=v,refreshFailure:v=>refreshFailure=v,serverError:v=>serverError=v};
 }
 (async()=>{
- const h=harness();assert(!h.node('field-client'));h.enter('field-place','hos');assert(h.html().includes('Hospital'));assert(!h.html().includes('Colegio'));
+ const direct=harness();direct.enter('field-client','bea');assert(direct.html().includes('Bea Sur'));assert(!direct.html().includes('Ana Norte'));direct.clickClient(2);assert.equal(direct.node('field-place').value,'Colegio');direct.chooseOrder(21);direct.enter('field-amount','1000');await direct.submit();assert.equal(direct.requests[0].payload.client_id,2);assert.equal(direct.requests[0].payload.order_id,21);
+ const accents=harness();accents.enter('field-client','maria');assert(accents.html().includes('María &lt;script&gt;'));assert(!accents.html().includes('Bea Sur'));
+
+ const h=harness();assert(h.node('field-client'));h.enter('field-place','hos');assert(h.html().includes('Hospital'));assert(!h.html().includes('Colegio'));
  h.clickPlace('hospital');assert(!h.html().includes('Bea Sur'));assert(h.html().includes('María &lt;script&gt;'));
  h.enter('field-client','ana');assert(!h.html().includes('María'));h.clickClient(1);
  assert(h.node('field-order'));assert.equal(h.node('field-order').value,'');assert(h.node('field-amount').disabled);
@@ -69,7 +72,7 @@ function harness(){
  assert(h.html().includes('Saldo de la compra: $5.000'));assert(h.html().includes('Saldo total de la clienta: $33.000'));assert.equal(h.store.size,0);
  // Overpayments are rejected against the chosen purchase even if the client owes more overall.
  h.enter('field-amount','6000');await h.submit();assert.equal(h.requests.length,1);assert(h.html().includes('no supere su saldo'));
- h.node('field-change-client').onclick();assert(!h.node('field-order'));h.node('field-change-place').onclick();assert(!h.node('field-client'));
+ h.node('field-change-client').onclick();assert(!h.node('field-order'));h.node('field-change-place').onclick();assert(h.node('field-client'));
  // An uncertain response survives reload and reuses exactly the same operation/purchase/amount.
  const lost=harness();lost.clickPlace('hospital');lost.clickClient(1);lost.chooseOrder(11);lost.enter('field-amount','3000');lost.network(true);await lost.submit();
  assert.equal(lost.S.orders[0].balance,17000);assert.equal(lost.store.size,1);const token=lost.requests[0].payload.operation;

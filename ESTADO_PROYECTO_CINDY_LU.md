@@ -159,3 +159,11 @@
 - Nueva tabla payment_shares conserva texto y teléfono de la confirmación para reintentos estables. Creación aditiva al iniciar; no se accedió a datos de producción.
 - Pruebas: 123 Python satisfactorias; Node de abonos inline, terreno, resumen anual y nuevo test_payment_share.cjs satisfactorios; sintaxis JS comprobada. El test nuevo comprueba valores, vínculo, teléfono, ausencia de envío automático y estabilidad ante otro abono y reintento.
 - Publicación en Render y apariencia en dispositivos pendientes de comprobar; la vista previa/logo de la tienda la decide WhatsApp.
+
+
+## Sesión 29-10-2026 · búsqueda directa en cobro en terreno
+
+- Buscador de clienta visible desde el inicio, sin exigir lugar previo; busca por nombre o teléfono ignorando tildes/mayúsculas.
+- Muestra lugar y teléfono para distinguir coincidencias; seleccionar clienta completa su lugar. El filtro por lugar sigue disponible.
+- Conserva selección explícita de compra, abonos y confirmación de WhatsApp. Sin cambios de datos de producción.
+- Validación: 123 pruebas Python, Node de terreno con búsqueda directa y pago a la clienta seleccionada, coincidencia sin tildes, resumen anual y sintaxis JS satisfactorios. Despliegue Render pendiente de comprobar.

@@ -10,7 +10,7 @@
   for(const client of S.clients){const label=clientWorkplace(client),k=key(label);if(!grouped.has(k))grouped.set(k,{key:k,label,count:0});grouped.get(k).count++;}
   return [...grouped.values()].sort((a,b)=>a.label.localeCompare(b.label,'es'));
  }
- function clients(){return S.clients.filter(c=>key(clientWorkplace(c))===state.place&&(!key(state.clientQuery)||key(c.name+' '+c.phone).includes(key(state.clientQuery)))).sort((a,b)=>balance(b.id)-balance(a.id)||a.name.localeCompare(b.name,'es'));}
+ function clients(){return S.clients.filter(c=>(!state.place||key(clientWorkplace(c))===state.place)&&(!key(state.clientQuery)||key(c.name+' '+c.phone).includes(key(state.clientQuery)))).sort((a,b)=>balance(b.id)-balance(a.id)||a.name.localeCompare(b.name,'es'));}
  function purchases(cid){return active(cid).slice().sort((a,b)=>String(b.purchased).localeCompare(String(a.purchased))||b.id-a.id);}
  const eligible=o=>o&&o.status==='active'&&!o.review&&o.balance>0;
  function persist(){try{if(state.pending)sessionStorage.setItem(storageKey,JSON.stringify(state.pending));else sessionStorage.removeItem(storageKey);}catch{}}
@@ -31,14 +31,14 @@
  function renderView(){
   restore();if(!state.date)state.date=S.today;if(state.noticeTemplate===null)state.noticeTemplate=CindyNotices.template(S.settings);
   const locked=state.busy||!!state.pending||state.needsRefresh,disabled=locked?'disabled':'',cl=selectedClient(),os=cl?purchases(cl.id):[],order=cl?selectedOrder():null;
-  const ps=places().filter(p=>!key(state.placeQuery)||key(p.label).includes(key(state.placeQuery))),cs=state.place&&!cl?clients():[];
-  return `<section class="card field-collection"><div class="card-head"><div><h2>Cobro en terreno</h2><p>Lugar de cobro, clienta y compra. Todo en esta pantalla.</p></div></div>
+  const ps=places().filter(p=>!key(state.placeQuery)||key(p.label).includes(key(state.placeQuery))),cs=!cl&&(state.place||key(state.clientQuery))?clients():[];
+  return `<section class="card field-collection"><div class="card-head"><div><h2>Cobro en terreno</h2><p>Busca una clienta por nombre o filtra primero por lugar de cobro.</p></div></div>
    <fieldset id="field-flow" class="field-flow" ${state.busy?'disabled':''}>
     <label for="field-place">Lugar de cobro</label><input id="field-place" type="search" autocomplete="off" placeholder="Busca el lugar de cobro…" value="${esc(state.placeQuery)}" role="combobox" aria-expanded="${!state.place}" aria-controls="field-place-results" ${disabled}>
     <div id="field-place-results" class="field-results" role="listbox" aria-label="Lugares de cobro">${!state.place?ps.slice(0,12).map(p=>`<button type="button" role="option" data-field-place="${esc(p.key)}" ${disabled}><strong>${esc(p.label)}</strong><small>${p.count} ${p.count===1?'clienta':'clientas'}</small></button>`).join('')||'<p>Sin lugares que coincidan.</p>':''}${!state.place&&ps.length>12?'<p>Escribe el lugar para acotar los resultados.</p>':''}</div>
-    ${state.place?`<div class="field-selection"><span>Lugar activo: <strong>${esc(state.placeQuery)}</strong></span><button type="button" id="field-change-place" class="text-button" ${disabled}>Cambiar lugar</button></div>
+    ${state.place?`<div class="field-selection"><span>Lugar activo: <strong>${esc(state.placeQuery)}</strong></span><button type="button" id="field-change-place" class="text-button" ${disabled}>Cambiar lugar</button></div>`:''}
      <label for="field-client">Buscar clienta</label><input id="field-client" type="search" autocomplete="off" placeholder="Nombre o teléfono de la clienta…" value="${esc(state.clientQuery)}" role="combobox" aria-expanded="${!cl}" aria-controls="field-client-results" ${disabled}>
-     <div id="field-client-results" class="field-results" role="listbox" aria-label="Clientas del lugar seleccionado">${!cl?cs.slice(0,15).map(c=>`<button type="button" role="option" data-field-client="${c.id}" ${disabled}><span><strong>${esc(c.name)}</strong><small>${c.phone?'+'+esc(c.phone):'Sin teléfono'}</small></span><b>${money(balance(c.id))}</b></button>`).join('')||'<p>No hay clientas que coincidan en este lugar.</p>':''}${!cl&&cs.length>15?'<p>Escribe el nombre para encontrar a la clienta.</p>':''}</div>`:''}
+     <div id="field-client-results" class="field-results" role="listbox" aria-label="Resultados de clientas">${!cl?cs.slice(0,15).map(c=>`<button type="button" role="option" data-field-client="${c.id}" ${disabled}><span><strong>${esc(c.name)}</strong><small>${esc(clientWorkplace(c))} · ${c.phone?'+'+esc(c.phone):'Sin teléfono'}</small></span><b>${money(balance(c.id))}</b></button>`).join('')||(state.place||key(state.clientQuery)?'<p>No hay clientas que coincidan con la búsqueda.</p>':'<p>Escribe un nombre para buscar en todas las clientas.</p>'):''}${!cl&&cs.length>15?'<p>Escribe más del nombre para acotar los resultados.</p>':''}</div>
     ${cl?`<div class="field-client-summary"><div><strong>${esc(cl.name)}</strong><small>Saldo total de la clienta</small></div><b>${money(balance(cl.id))}</b><button type="button" id="field-change-client" class="text-button" ${disabled}>Otra clienta</button></div>
      <form id="field-payment-form">
       <label for="field-order">Compra a la que se aplica el abono</label><select id="field-order" name="order_id" required ${disabled}><option value="">Selecciona una compra</option>${os.map(o=>`<option value="${o.id}" ${o.id===state.orderId?'selected':''} ${!eligible(o)?'disabled':''}>${esc(o.number)} · ${day(o.purchased)} · ${o.review?'Por revisar':o.balance>0?'Saldo '+money(o.balance):'Pagada'}</option>`).join('')}</select>
@@ -62,7 +62,7 @@
   $$('#field-place-results [data-field-place]').forEach(b=>b.onclick=()=>{if(state.pending||state.busy)return;const p=places().find(p=>p.key===b.dataset.fieldPlace);if(!p)return;state.place=p.key;state.placeQuery=p.label;clearClient();redraw('field-client');});
   const changePlace=$('#field-change-place');if(changePlace)changePlace.onclick=()=>{state.place='';state.placeQuery='';clearClient();redraw('field-place');};
   const input=$('#field-client');if(input)input.oninput=()=>{clearClient();state.clientQuery=input.value;redraw('field-client');};
-  $$('#field-client-results [data-field-client]').forEach(b=>b.onclick=()=>{if(state.pending||state.busy)return;const cl=clients().find(c=>c.id===Number(b.dataset.fieldClient));if(!cl)return;clearClient();state.clientId=cl.id;state.clientQuery=cl.name;redraw('field-order');});
+  $$('#field-client-results [data-field-client]').forEach(b=>b.onclick=()=>{if(state.pending||state.busy)return;const cl=clients().find(c=>c.id===Number(b.dataset.fieldClient));if(!cl)return;clearClient();state.place=key(clientWorkplace(cl));state.placeQuery=clientWorkplace(cl);state.clientId=cl.id;state.clientQuery=cl.name;redraw('field-order');});
   const changeClient=$('#field-change-client');if(changeClient)changeClient.onclick=()=>{clearClient();redraw('field-client');};
   const order=$('#field-order');if(order)order.onchange=()=>{state.orderId=Number(order.value)||null;state.amount='';state.notice='';state.error='';state.lastNotice=null;state.paymentId=null;redraw('field-amount');};
   const updateNotice=CindyNotices.bind('field',()=>state,draft=>Object.assign(state,draft),noticeValues);
