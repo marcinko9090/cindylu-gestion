@@ -181,3 +181,9 @@
 - Para pedidos nuevos con saldo Shopify cero, modal ofrece confirmación explícita de que el total sigue pendiente y no está ya incluido. Servidor exige total confirmado igual al vigente; conserva protección de compras existentes, históricos, negativos y reintentos.
 - Errores visibles dentro del modal además del aviso temporal. No se modificaron datos de producción ni se confirmó la causa exacta del pedido de la captura.
 - Validación: 124 pruebas Python, resumen anual Node, modal de revisión Node y sintaxis JS satisfactorios. Despliegue Render y resolución del caso real pendientes de comprobar.
+
+
+## Sesión 29-10-2026 · navegación Shopify
+- Menú Comprobantes sustituido por Pedidos Shopify, abre pedidos pendientes con contador correspondiente. Eliminado botón Shopify duplicado de Clientas; comprobantes conservados en fichas.
+- Revisados bloqueos de Agregar al saldo: vínculo ausente, historial duplicado, diferencias locales y validación de importes. Las capturas no contienen aviso legible; caso real sigue pendiente de identificar con texto exacto. No se alteraron saldos ni se eliminaron validaciones.
+- Validación local: suite Python y resumen anual Node y sintaxis JS ejecutadas. Publicación Render pendiente.
