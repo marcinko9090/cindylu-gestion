@@ -132,3 +132,12 @@
 - No se accedió ni modificó la base de producción. Las pruebas usan una base temporal; no se generó respaldo de producción.
 - Despliegue en Render: pendiente de comprobar. No afirmar que el cambio está visible hasta verificar la publicación.
 - Otras tareas P0/P1 de esta ficha siguen pendientes de validación independiente.
+
+
+## Sesión 29-10-2026 · error al abrir revisión
+
+- La captura del usuario mostró `remoteMoney is not defined`. La función estaba limitada al listado y no disponible para el modal.
+- Corregido en static/app.js compartiendo el formateador; commit 8ad9baed6513f3ca274970ce44c97e8576285d5e.
+- Prueba de regresión tests/test_review_modal.cjs: apertura, monto CLP y envío de ambas decisiones con fingerprint; commit f2fe084370e2f4f876892c41ebb4d3d4481fcf54.
+- Validación: 122 pruebas Python, pruebas Node de resumen anual, prueba de modal y sintaxis JavaScript satisfactorias.
+- Sin cambios ni acceso a base de producción; no se requirió respaldo de datos. Publicación efectiva en Render pendiente de verificar.
