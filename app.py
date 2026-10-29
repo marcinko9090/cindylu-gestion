@@ -12,6 +12,8 @@ from shopify_pending import pending_record
 import shopify_tags
 from werkzeug.security import generate_password_hash, check_password_hash
 
+PAYMENT_CONFIRMATION="Confirmamos tu abono de {monto}.\n\n*Tu saldo total pendiente es {saldo_total}*\n\n¡Gracias por comprar en Cindy Lú!\n\nRECUERDA: TODO DISPONIBLE EN MI WEB\nhttps://cindylu.cl/\n\nAgrega lo que quieras a tu cuenta, hasta en 3 cuotas 🤑"
+
 ROOT=Path(__file__).resolve().parent
 # Optional local configuration, never exposed to the browser.
 if (ROOT/'.env').exists():
@@ -82,13 +84,16 @@ def init():
         CREATE TABLE IF NOT EXISTS messages(id INTEGER PRIMARY KEY,client_id INTEGER NOT NULL REFERENCES clients(id),direction TEXT NOT NULL,body TEXT NOT NULL,wa_id TEXT UNIQUE,receipt_id INTEGER REFERENCES receipts(id),status TEXT NOT NULL,created TEXT NOT NULL);
         CREATE TABLE IF NOT EXISTS settings(key TEXT PRIMARY KEY,value TEXT NOT NULL);
         CREATE TABLE IF NOT EXISTS reminders(id INTEGER PRIMARY KEY,client_id INTEGER NOT NULL REFERENCES clients(id),at TEXT NOT NULL,body TEXT NOT NULL,status TEXT DEFAULT 'pending',error TEXT DEFAULT '');
+        CREATE TABLE IF NOT EXISTS payment_shares(payment_id INTEGER PRIMARY KEY REFERENCES payments(id) ON DELETE CASCADE,body TEXT NOT NULL,phone TEXT NOT NULL);
         CREATE TABLE IF NOT EXISTS payment_notices(payment_id INTEGER PRIMARY KEY REFERENCES payments(id),client_id INTEGER NOT NULL REFERENCES clients(id),body TEXT NOT NULL,status TEXT NOT NULL,error TEXT DEFAULT '',created TEXT NOT NULL);
         CREATE TABLE IF NOT EXISTS statement_sends(id INTEGER PRIMARY KEY,operation TEXT UNIQUE NOT NULL,client_id INTEGER NOT NULL REFERENCES clients(id),digest TEXT NOT NULL,body TEXT NOT NULL,phone TEXT NOT NULL,balance INTEGER NOT NULL,path TEXT DEFAULT '',filename TEXT NOT NULL,status TEXT NOT NULL,wa_id TEXT UNIQUE,error TEXT DEFAULT '',created TEXT NOT NULL);
         CREATE TABLE IF NOT EXISTS statement_links(token_hash TEXT PRIMARY KEY,pdf BLOB NOT NULL,expires INTEGER NOT NULL);
         CREATE TABLE IF NOT EXISTS audit(id INTEGER PRIMARY KEY,event TEXT,data TEXT,created TEXT);
         ''')
         cindy_import.init_schema(c)
-        for k,v in {'auto_reply':False,'payment_notify':False,'payment_text':'Hola, {nombre} ✨ Confirmamos tu abono de {monto} para la compra {compra}. Saldo de esta compra: {saldo_compra}. Tu saldo total pendiente es {saldo_total}. ¡Gracias por comprar en Cindy Lú!','sending':False,'reply_text':'Gracias, recibimos tu comprobante. Revisaremos la transferencia y te confirmaremos el abono.','template':'','template_language':'es_CL','statement_template':'','statement_language':'es_CL','sync_at':'','sync_error':'','shopify_domain':'cindylu.myshopify.com','shopify_token':'','shopify_credit_mode':'credit_when_paid','shopify_default_installments':0}.items(): c.execute('INSERT OR IGNORE INTO settings VALUES(?,?)',(k,json.dumps(v)))
+        for k,v in {'auto_reply':False,'payment_notify':False,'payment_text':PAYMENT_CONFIRMATION,'sending':False,'reply_text':'Gracias, recibimos tu comprobante. Revisaremos la transferencia y te confirmaremos el abono.','template':'','template_language':'es_CL','statement_template':'','statement_language':'es_CL','sync_at':'','sync_error':'','shopify_domain':'cindylu.myshopify.com','shopify_token':'','shopify_credit_mode':'credit_when_paid','shopify_default_installments':0}.items(): c.execute('INSERT OR IGNORE INTO settings VALUES(?,?)',(k,json.dumps(v)))
+        if settings(c).get('payment_text') in ("Hola, {nombre} ✨ Confirmamos tu abono de {monto} para la compra {compra}. Saldo de esta compra: {saldo_compra}. Tu saldo total pendiente es {saldo_total}. ¡Gracias por comprar en Cindy Lú!", "Hola, {nombre}. Confirmamos tu abono de {monto} para la compra {compra}. Saldo de esta compra: {saldo_compra}. Tu saldo total pendiente es {saldo_total}. ¡Gracias por comprar en Cindy Lú!"):
+            setval(c,'payment_text',PAYMENT_CONFIRMATION)
         c.execute("UPDATE payment_notices SET status='review',error='Envío interrumpido; revisar antes de reenviar.' WHERE status='sending'")
         c.execute("UPDATE statement_sends SET status='review',error='Envío interrumpido; revisar WhatsApp antes de reenviar.' WHERE status IN ('preparing','sending')")
         c.execute("UPDATE messages SET status='review' WHERE status='sending'")
@@ -360,7 +365,14 @@ def payment():
             audit(c,'payment_notice_queued',{'payment_id':pid})
         notice=c.execute('SELECT payment_id,body,status,error FROM payment_notices WHERE payment_id=?',(pid,)).fetchone()
         notice=dict(notice) if notice else None
-    return jsonify(id=pid,notice=notice)
+        share=c.execute('SELECT body,phone FROM payment_shares WHERE payment_id=?',(pid,)).fetchone()
+        if not share:
+            cid,body=payment_text(c,pid)
+            phone=one(c,'SELECT phone FROM clients WHERE id=?',(cid,))['phone']
+            c.execute('INSERT INTO payment_shares(payment_id,body,phone) VALUES(?,?,?)',(pid,body,phone))
+            share={'body':body,'phone':phone}
+        share=dict(share);share['status']='ready'
+    return jsonify(id=pid,notice=notice,share=share)
 @app.post('/api/payments/<int:pid>/reverse')
 def reverse(pid):
     reason=str(request.get_json().get('reason','')).strip()

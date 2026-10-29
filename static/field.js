@@ -84,7 +84,7 @@
   const pending={...state.pending};state.busy=true;state.error='';render();
   try{
    const result=await api('payments',pending);
-   state.paymentId=result.id;state.lastNotice=result.notice||null;state.notify=false;state.noticeTemplate=CindyNotices.template(S.settings);
+   state.paymentId=result.id;state.lastNotice=result.notice||result.share||null;state.notify=false;state.noticeTemplate=CindyNotices.template(S.settings);
    state.pending=null;persist();state.amount='';state.notice='Abono de '+money(pending.amount)+' registrado en '+(order?.number||'la compra seleccionada')+'.';
    // A successful write remains successful even if the follow-up refresh loses connection.
    try{await refresh(false);state.notice+=' Saldo de la compra: '+money(S.orders.find(o=>o.id===pending.order_id)?.balance||0)+'. Saldo total de la clienta: '+money(balance(pending.client_id))+'.';}

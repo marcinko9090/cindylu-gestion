@@ -1,7 +1,7 @@
 /* Payment confirmations are ordinary client messages, never seasonally decorated. */
 (function(){
  'use strict';
- const fallback='Hola, {nombre}. Confirmamos tu abono de {monto} para la compra {compra}. Saldo de esta compra: {saldo_compra}. Tu saldo total pendiente es {saldo_total}. ¡Gracias por comprar en Cindy Lú!';
+ const fallback="Confirmamos tu abono de {monto}.\n\n*Tu saldo total pendiente es {saldo_total}*\n\n¡Gracias por comprar en Cindy Lú!\n\nRECUERDA: TODO DISPONIBLE EN MI WEB\nhttps://cindylu.cl/\n\nAgrega lo que quieras a tu cuenta, hasta en 3 cuotas 🤑";
  function template(settings){return settings?.payment_text||fallback;}
  function format(text,values){return String(text).replace(/\{(nombre|monto|compra|saldo_compra|saldo_total|fecha)\}/g,(_,key)=>String(values[key]??'—'));}
  function values(client,order,amount,date,total){
@@ -31,8 +31,10 @@
  }
  function status(notice){
   if(!notice)return '';
-  const labels={pending:'Pendiente de envío',sending:'Enviando por WhatsApp',sent:'Enviado a WhatsApp',review:'Revisar envío',cancelled:'Aviso cancelado',demo:'Demostración · No enviado'};
-  return `<section class="payment-notice-result"><strong>Confirmación por WhatsApp · ${esc(labels[notice.status]||notice.status)}</strong><pre class="payment-notice-preview">${esc(notice.body)}</pre>${notice.error?`<p class="danger">${esc(notice.error)}</p>`:''}</section>`;
+  const labels={ready:'Lista para enviar',pending:'Pendiente de envío',sending:'Enviando por WhatsApp',sent:'Enviado a WhatsApp',review:'Revisar envío',cancelled:'Aviso cancelado',demo:'Demostración · No enviado'};
+  const phone=String(notice.phone||'').replace(/[ +()\-]/g,'');
+  const link=notice.status==='ready'&&/^[1-9]\d{7,14}$/.test(phone)?'https://wa.me/'+phone+'?text='+encodeURIComponent(notice.body):'';
+  return `<section class="payment-notice-result"><strong>Confirmación por WhatsApp · ${esc(labels[notice.status]||notice.status)}</strong><pre class="payment-notice-preview">${esc(notice.body)}</pre>${link?`<a class="primary" href="${esc(link)}" target="_blank" rel="noopener noreferrer">Abrir WhatsApp para enviar</a><p class="subtle">Revisa el mensaje y pulsa Enviar en WhatsApp.</p>`:notice.status==='ready'?'<p class="subtle">Completa un teléfono internacional válido en la ficha para abrir WhatsApp.</p>':''}${notice.error?`<p class="danger">${esc(notice.error)}</p>`:''}</section>`;
  }
  window.CindyNotices={template,format,values,hint,editor,bind,status};
 })();

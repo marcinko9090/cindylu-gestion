@@ -75,3 +75,5 @@
 - Include enriched purchase_history product records as descriptive reference cards in the main client purchase list and PDF, deduplicating by order number against existing cards. Never add their totals to debt or invent unavailable products.
 
 - Calm messages focus on effort, patience and kindness without pressure. Persist the next unique complete message in browser storage; never wrap the catalogue on exhaustion. Storage clearing or a different browser resets local history. Respect reduced motion and keep these effects internal.
+
+- After recording an abono, offer a ready-to-send manual WhatsApp confirmation using the user's store-link wording: confirmed amount, bold total pending, thanks, https://cindylu.cl/ and the up-to-three-installments promotional line. This wording does not create installment schedules. Use confirmed server values and a stable per-payment snapshot; opening wa.me requires the user's click and does not mark it sent. Avoid offering duplicate manual sends for notices already queued/sent. Preserve customized global templates and migrate only old defaults. Link-card imagery is controlled by WhatsApp.

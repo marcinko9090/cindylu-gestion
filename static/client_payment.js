@@ -54,7 +54,7 @@
   const pending={...d.pending};d.busy=true;d.error='';render();
   try{
    const result=await api('payments',pending);
-   d.pending=null;save();d.amount='';d.note='';d.noticeTemplate=CindyNotices.template(S.settings);d.verified=false;d.notify=false;d.notice=result.notice||null;d.success='Abono de '+money(pending.amount)+' registrado.';
+   d.pending=null;save();d.amount='';d.note='';d.noticeTemplate=CindyNotices.template(S.settings);d.verified=false;d.notify=false;d.notice=result.notice||result.share||null;d.success='Abono de '+money(pending.amount)+' registrado.';
    try{await refresh(false);}catch{d.needsRefresh=true;d.error='El abono ya fue registrado. Actualiza los saldos antes de ingresar otro.';}
   }catch(error){
    if(error.status&&error.status<500){d.pending=null;save();d.error=error.message;}

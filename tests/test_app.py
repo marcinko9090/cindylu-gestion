@@ -203,7 +203,7 @@ class FinanceTests(unittest.TestCase):
         for _ in range(2):
             r=self.http.post('/api/payments',json=payload,headers={'X-CSRF-Token':'test'});self.assertEqual(r.status_code,200)
         with a.db() as c:
-            notices=a.rows(c,'SELECT * FROM payment_notices');self.assertEqual(len(notices),1);self.assertIn('$90.001',notices[0]['body']);self.assertIn('Javiera',notices[0]['body']);self.assertEqual(a.balance(c,self.oid),90001)
+            notices=a.rows(c,'SELECT * FROM payment_notices');self.assertEqual(len(notices),1);self.assertIn('$90.001',notices[0]['body']);self.assertIn('https://cindylu.cl/',notices[0]['body']);self.assertEqual(a.balance(c,self.oid),90001)
         self.http.post('/api/payments/'+str(r.json['id'])+'/reverse',json={'reason':'Corrección del monto'},headers={'X-CSRF-Token':'test'})
         with a.db() as c:self.assertEqual(c.execute('SELECT status FROM payment_notices').fetchone()[0],'cancelled')
     def test_failed_notice_does_not_undo_or_resend_payment(self):
@@ -216,6 +216,27 @@ class FinanceTests(unittest.TestCase):
             a.process_payment_notices();a.process_payment_notices();self.assertEqual(send.call_count,1)
         with a.db(True) as c:
             self.assertEqual(a.balance(c,self.oid),90001);self.assertEqual(c.execute('SELECT status FROM payment_notices').fetchone()[0],'review');a.setval(c,'sending',False)
+    def test_manual_payment_confirmation_is_ready_and_stable_on_retry(self):
+        with self.http.session_transaction() as s:s['user']=1;s['csrf']='test'
+        payload={'order_id':self.oid,'amount':30000,'operation':'manualconfirmationoperation','notify':False}
+        first=self.http.post('/api/payments',json=payload,headers={'X-CSRF-Token':'test'})
+        self.assertEqual(first.status_code,200)
+        self.assertIsNone(first.json['notice'])
+        share=first.json['share']
+        self.assertEqual(share['status'],'ready')
+        self.assertEqual(share['phone'],'56900000001')
+        self.assertIn('Confirmamos tu abono de $30.000.',share['body'])
+        self.assertIn('*Tu saldo total pendiente es $70.001*',share['body'])
+        self.assertIn('https://cindylu.cl/',share['body'])
+        self.assertIn('hasta en 3 cuotas',share['body'])
+        self.payment(1000,operation='anotherpaymentoperation')
+        retry=self.http.post('/api/payments',json=payload,headers={'X-CSRF-Token':'test'})
+        self.assertEqual(retry.json['share'],share)
+        with a.db() as c:
+            self.assertEqual(c.execute('SELECT COUNT(*) FROM payment_shares').fetchone()[0],1)
+            self.assertEqual(c.execute('SELECT COUNT(*) FROM payment_notices').fetchone()[0],0)
+            self.assertEqual(a.balance(c,self.oid),69001)
+
     def test_notice_off_creates_no_message(self):
         self.plan()
         with self.http.session_transaction() as s:s['user']=1;s['csrf']='test'
@@ -289,4 +310,5 @@ class FinanceTests(unittest.TestCase):
             self.assertEqual(c.execute('SELECT COUNT(*) FROM orders').fetchone()[0],1)
 
 if __name__=='__main__':unittest.main(verbosity=2)
+
 

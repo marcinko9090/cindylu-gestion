@@ -1,0 +1,12 @@
+const assert=require('node:assert/strict'),fs=require('node:fs'),vm=require('node:vm');
+const ctx={window:{},esc:s=>String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;')};vm.createContext(ctx);
+vm.runInContext(fs.readFileSync(require('node:path').join(__dirname,'../static/notices.js'),'utf8'),ctx);
+const api=ctx.window.CindyNotices,body=api.format(api.template({}),{monto:'$30.000',saldo_total:'$74.980'});
+assert(body.includes('https://cindylu.cl/'));assert(body.includes('*Tu saldo total pendiente es $74.980*'));
+const markup=api.status({status:'ready',phone:'+56 9 1234 5678',body});
+assert(markup.includes('https://wa.me/56912345678?text='+encodeURIComponent(body)));
+assert(markup.includes('Abrir WhatsApp para enviar'));
+assert(!api.status({status:'ready',phone:'123',body}).includes('wa.me'));
+assert(!api.status({status:'pending',phone:'56912345678',body}).includes('wa.me'));
+assert(!api.status({status:'sent',phone:'56912345678',body}).includes('wa.me'));
+console.log('Manual confirmation: template, amount, total, store link, phone validation and no duplicate queued sends passed.');

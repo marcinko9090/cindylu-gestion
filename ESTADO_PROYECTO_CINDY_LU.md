@@ -150,3 +150,12 @@
 - Cinco segundos de lectura y dos de vuelo ascendente con doce brillos dorados que acompañan la salida. Movimiento reducido elimina el vuelo y partículas. No modifica PDFs, mensajes a clientas ni datos contables.
 - Pruebas: 122 Python, resumen anual Node, sintaxis JS y tests de calma (intervalo, exclusiones, persistencia y catálogo completo sin repeticiones) satisfactorios.
 - Vista visual automatizada no disponible: falta ejecutable Chromium en el entorno. Despliegue Render y apariencia en dispositivo real pendientes de comprobar.
+
+
+## Sesión 29-10-2026 · confirmación de abono con enlace de tienda
+
+- Plantilla predeterminada adaptada a la captura: monto, saldo total en negrita WhatsApp, agradecimiento, https://cindylu.cl/ y frase promocional hasta en 3 cuotas. No modifica reglas de abonos ni crea cuotas fijas. Migra únicamente plantillas predeterminadas antiguas; conserva personalizaciones.
+- Tras confirmar un abono sin envío automático, ficha, cobro en terreno y modal ofrecen mensaje listo y enlace a WhatsApp con teléfono validado. No envía mensajes ni afirma entrega. Avisos ya encolados conservan su estado sin botón manual duplicado.
+- Nueva tabla payment_shares conserva texto y teléfono de la confirmación para reintentos estables. Creación aditiva al iniciar; no se accedió a datos de producción.
+- Pruebas: 123 Python satisfactorias; Node de abonos inline, terreno, resumen anual y nuevo test_payment_share.cjs satisfactorios; sintaxis JS comprobada. El test nuevo comprueba valores, vínculo, teléfono, ausencia de envío automático y estabilidad ante otro abono y reintento.
+- Publicación en Render y apariencia en dispositivos pendientes de comprobar; la vista previa/logo de la tienda la decide WhatsApp.
