@@ -90,7 +90,7 @@ function clientPurchaseDetails(cid){
  return `<section class="card client-purchase-details"><div class="card-head"><h2>Compras</h2><button class="outline" data-action="sync">Actualizar productos de Shopify</button></div>${entries.length?entries.map(clientPurchaseCard).join(''):'<p class="subtle">Todavía no hay productos vinculados a esta ficha. Actualiza Shopify; si el pedido está en Pedidos de Shopify, vincúlalo a esta clienta para mostrar aquí su detalle.</p>'}</section>`;
 }
 function pendingShopifyOrders(){return S.settings?.shopify_pending_orders||[];}
-function shopifyDebtAdded(r){return S.orders.some(o=>o.shopify_id===r.shopify_id&&o.source==='shopify_confirmed');}
+function shopifyDebtAdded(r){return S.orders.some(o=>o.shopify_id===r.shopify_id&&['shopify_confirmed','shopify_confirmed_new'].includes(o.source));}
 function pendingShopifyRow(r,index,inFicha=false){
  const cl=S.clients.find(c=>c.id===r.client_id);
  if(inFicha)return clientPurchaseCard(r);

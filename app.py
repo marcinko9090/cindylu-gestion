@@ -649,6 +649,14 @@ def import_shop_order(c,o,allow_new=True):
     status='cancelled' if o.get('cancelledAt') else 'active'
     oid=c.execute('INSERT INTO orders(client_id,shopify_id,number,purchased,total,base_paid,items,source,status,remote,updated) VALUES(?,?,?,?,?,?,?,?,?,?,?)',(cid,o['id'],o['name'],o['createdAt'],total,base_paid,json.dumps(items,ensure_ascii=False),'shopify',status,snapshot,now())).lastrowid
     return 'created'
+def create_shopify_client_files(c):
+    from shopify_clients import create_missing
+    records=settings(c).get('shopify_pending_orders',[])
+    result=create_missing(c,records,phone,amount,now())
+    setval(c,'shopify_pending_orders',records)
+    if result['clients_created'] or result['purchases_added']:audit(c,'shopify_client_files_created',result)
+    return result
+
 SYNC_LOCK=threading.Lock()
 def sync_shop():
     with db() as c:cfg=settings(c)
@@ -701,6 +709,7 @@ def sync_shop():
                 old_tags={r['shopify_id']:r.get('tags',[]) for r in settings(c).get('shopify_pending_orders',[])}
                 for record in pending_orders:record['tags']=old_tags.get(record['shopify_id'],[])
             setval(c,'shopify_pending_orders',pending_orders)
+            create_shopify_client_files(c)
             setval(c,'shopify_tags_error',tags_error)
             if tag_customers is not None:
                 setval(c,'shopify_client_tags',shopify_tags.classify(c,tag_customers,phone,pending_orders))
@@ -724,7 +733,7 @@ def add_shopify_debt():
         one(c,'SELECT id FROM clients WHERE id=?',(cid,))
         existing=c.execute('SELECT * FROM orders WHERE shopify_id=?',(sid,)).fetchone()
         if existing:
-            if existing['source']=='shopify_confirmed' and existing['client_id']==cid:return jsonify(ok=True,already_added=True,order_id=existing['id'])
+            if existing['source'] in ('shopify_confirmed','shopify_confirmed_new') and existing['client_id']==cid:return jsonify(ok=True,already_added=True,order_id=existing['id'])
             raise ValueError('Este pedido ya tiene un registro. Revisa su saldo en la ficha; no se sumó nuevamente.')
         key=str(item.get('number') or '').strip().lstrip('#').strip()
         if not key:raise ValueError('Falta el número del pedido.')
@@ -959,6 +968,7 @@ def import_template():
 
 
 init()
+with db(True) as c:create_shopify_client_files(c)
 if __name__=='__main__':
     import argparse
     parser=argparse.ArgumentParser();parser.add_argument('--no-browser',action='store_true');args=parser.parse_args()
