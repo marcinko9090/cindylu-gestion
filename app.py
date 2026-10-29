@@ -651,10 +651,14 @@ def import_shop_order(c,o,allow_new=True):
     return 'created'
 def create_shopify_client_files(c):
     from shopify_clients import create_missing,incorporate_review_pending
-    records=settings(c).get('shopify_pending_orders',[])
+    decisions=settings(c).get('shopify_order_decisions',{})
+    records=[r for r in settings(c).get('shopify_pending_orders',[]) if r['shopify_id'] not in decisions]
     result=create_missing(c,records,phone,amount,now())
     reviews=settings(c).get('shopify_review_orders',[])
     result['purchases_added']+=incorporate_review_pending(c,records,reviews,amount,now())
+    for r in reviews:
+        if r['shopify_id'] in decisions:
+            r.update(status='reviewed',note='Al contado' if decisions[r['shopify_id']]['decision']=='cash' else 'Compra agregada al saldo')
     setval(c,'shopify_review_orders',reviews)
     setval(c,'shopify_pending_orders',records)
     if result['clients_created'] or result['purchases_added']:audit(c,'shopify_client_files_created',result)
@@ -752,9 +756,56 @@ def add_shopify_debt():
         audit(c,'shopify_debt_confirmed',{'order_id':oid,'client_id':cid,'shopify_id':sid,'added_balance':pending,'fingerprint':item['fingerprint'],'user':session['user']})
     return jsonify(ok=True,order_id=oid)
 
+def resolve_shopify_review(c, d):
+    sid=str(d.get('shopify_id',''));decision=d.get('decision')
+    if decision not in ('cash','debt'):raise ValueError('Selecciona Al contado o Agregar al saldo.')
+    cfg=settings(c);decisions=cfg.get('shopify_order_decisions',{})
+    previous=decisions.get(sid)
+    if previous:
+        if previous['decision']==decision and previous['fingerprint']==d.get('fingerprint'):return
+        raise ValueError('Este pedido ya fue resuelto. Revisa su ficha antes de cambiarlo.')
+    reviews=cfg.get('shopify_review_orders',[])
+    item=next((r for r in reviews if r['shopify_id']==sid),None)
+    if not item or item['fingerprint']!=d.get('fingerprint'):raise ValueError('El pedido cambió. Actualiza y vuelve a revisar.')
+    existing=c.execute('SELECT * FROM orders WHERE shopify_id=?',(sid,)).fetchone()
+    oid=existing['id'] if existing else None
+    if decision=='cash':
+        # Preserve purchases and payments in history, without an outstanding debt.
+        if existing:
+            c.execute("UPDATE orders SET status='cancelled',review='',updated=? WHERE id=?",(now(),oid))
+    else:
+        if item.get('currency')!='CLP':raise ValueError('Revisa la moneda del pedido antes de agregarlo.')
+        total=amount(item['total']);pending=amount(item['outstanding'])
+        if not 0<pending<=total:raise ValueError('El pedido no tiene un saldo pendiente válido. Revisa sus montos.')
+        snapshot=next((r for r in cfg.get('shopify_pending_orders',[]) if r['shopify_id']==sid),{})
+        cid=item.get('client_id') or snapshot.get('client_id')
+        if not cid:raise ValueError('Vincula el pedido a la ficha correcta desde Pedidos de Shopify y vuelve a revisar.')
+        one(c,'SELECT id FROM clients WHERE id=?',(cid,))
+        if existing:
+            if existing['client_id']!=cid or existing['status']!='active' or existing['total']!=total or existing['review']:
+                raise ValueError('La compra existente tiene diferencias. Revisa Ajustar compra en su ficha antes de incorporarla.')
+        else:
+            key=str(item.get('number') or '').strip().lstrip('#').strip()
+            if not key:raise ValueError('Falta el número del pedido.')
+            if c.execute("SELECT 1 FROM orders WHERE trim(ltrim(trim(number),'#'))=?",(key,)).fetchone() or c.execute("SELECT 1 FROM purchase_history WHERE trim(ltrim(trim(number),'#'))=? AND kind='purchase'",(key,)).fetchone():
+                raise ValueError('La compra ya está en el historial. Revisa la ficha para evitar duplicar deuda.')
+            remote=json.dumps({'total':total,'outstanding':pending,'cancelled':None,'items':item['items']},sort_keys=True,ensure_ascii=False)
+            oid=c.execute("INSERT INTO orders(client_id,shopify_id,number,purchased,total,base_paid,items,source,status,remote,updated) VALUES(?,?,?,?,?,?,?,'shopify_confirmed','active',?,?)",
+                (cid,sid,item['number'],item['purchased'],total,total-pending,json.dumps(item['items'],ensure_ascii=False),remote,now())).lastrowid
+    decisions[sid]={'decision':decision,'fingerprint':item['fingerprint'],'order_id':oid,'at':now()}
+    setval(c,'shopify_order_decisions',decisions)
+    item.update(status='reviewed',note='Al contado' if decision=='cash' else 'Compra agregada al saldo',reviewed_at=now(),reviewed_by=session['user'])
+    setval(c,'shopify_review_orders',reviews)
+    setval(c,'shopify_pending_orders',[r for r in cfg.get('shopify_pending_orders',[]) if r['shopify_id']!=sid])
+    audit(c,'shopify_review_resolved',{'shopify_id':sid,**decisions[sid],'user':session['user']})
+
 @app.post('/api/shopify/review')
 def save_shopify_review():
-    d=request.get_json();sid=str(d.get('shopify_id',''));fingerprint=str(d.get('fingerprint',''))
+    d=request.get_json() or {}
+    if 'decision' in d:
+        with db(True) as c:resolve_shopify_review(c,d)
+        return jsonify(ok=True)
+    sid=str(d.get('shopify_id',''));fingerprint=str(d.get('fingerprint',''))
     status=d.get('status');note=str(d.get('note','')).strip()
     if status not in ('pending','reviewed') or len(note)>2000 or (status=='reviewed' and len(note)<5):
         raise ValueError('Agrega una observación de al menos 5 caracteres para marcar como revisado (máximo 2000).')
