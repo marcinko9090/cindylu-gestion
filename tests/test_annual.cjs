@@ -68,7 +68,7 @@ assert(archive.includes('data-ledger-order="4"'));assert(archive.includes('data-
 assert(!html.includes('data-ledger-order="5"'));assert(!html.includes('data-ledger-payment="15"'));
 assert(main.includes('data-action="pay" data-id="1"'));assert(!main.includes('data-action="pay" data-id="2"'));assert(!main.includes('data-action="pay" data-id="3"'));
 let page=ui.detail();assert(page.includes('Ana &lt;Norte&gt;'));assert(!page.includes('client-info'));assert(!page.includes('class="workspace"'));
-assert(page.includes('id="client-ledger-support" class="client-ledger-support" >'));assert(page.includes('data-test-chat'));assert(page.includes('data-action="explain"'));assert(page.includes('/api/clients/1/statement.pdf'));
+assert(page.includes('id="client-ledger-support" class="client-ledger-support" >'));assert(page.includes('data-test-chat'));assert(page.includes('data-action="share-statement"'));assert(!page.includes('data-action="explain"'));assert(!page.includes('data-action="open-whatsapp"'));
 ui.clientSupportOpen=true;assert(ui.detail().includes('class="client-ledger-support" open>'));
 // The same purchase-year and total balances update after a confirmed payment.
 model.orders[0].balance-=1000;model.payments.push({id:16,order_id:1,amount:1000,date:'2026-10-27',reversed:0});
