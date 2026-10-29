@@ -79,3 +79,5 @@
 - After recording an abono, offer a ready-to-send manual WhatsApp confirmation using the user's store-link wording: confirmed amount, bold total pending, thanks, https://cindylu.cl/ and the up-to-three-installments promotional line. This wording does not create installment schedules. Use confirmed server values and a stable per-payment snapshot; opening wa.me requires the user's click and does not mark it sent. Avoid offering duplicate manual sends for notices already queued/sent. Preserve customized global templates and migrate only old defaults. Link-card imagery is controlled by WhatsApp.
 
 - Cobro en terreno also allows direct client name/phone search before choosing a workplace. Keep search visible initially, normalize accents/case, show workplace and phone to distinguish people, and set the workplace on explicit client selection. An explicitly selected workplace continues to filter results. Preserve per-purchase abonos, pending-operation locks and optional WhatsApp confirmations.
+
+- In Cobro en terreno, always place the client search and its results above the workplace search and results, on mobile and desktop.

@@ -167,3 +167,9 @@
 - Muestra lugar y teléfono para distinguir coincidencias; seleccionar clienta completa su lugar. El filtro por lugar sigue disponible.
 - Conserva selección explícita de compra, abonos y confirmación de WhatsApp. Sin cambios de datos de producción.
 - Validación: 123 pruebas Python, Node de terreno con búsqueda directa y pago a la clienta seleccionada, coincidencia sin tildes, resumen anual y sintaxis JS satisfactorios. Despliegue Render pendiente de comprobar.
+
+
+## Sesión 29-10-2026 · orden de buscadores en terreno
+
+- Buscar clienta y sus resultados ahora aparecen antes de Lugar de cobro y su lista, en todos los tamaños de pantalla.
+- Cambio solo de orden visual/DOM; sin cambios de datos. Verificado con sintaxis JS, pruebas Node de terreno y resumen anual y 123 pruebas Python satisfactorias. Publicación en Render pendiente de comprobar.
