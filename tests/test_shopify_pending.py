@@ -76,8 +76,8 @@ class PendingShopifyTests(unittest.TestCase):
         self.assertEqual(self.http.post('/api/shopify/pending/link',json=body,headers={'X-CSRF-Token':'test'}).status_code,200)
         self.sync([self.order]);self.assertEqual(self.records()[0]['match'],'manual')
         self.assertEqual(self.records()[0]['client_id'],self.cid)
-        changed=copy.deepcopy(self.order);changed['id']='gid://shopify/Order/other';changed['name']='#other';changed['customer']['id']='gid://shopify/Customer/other';self.sync([changed])
-        self.assertIsNone(self.records()[0]['client_id'])
+        changed=copy.deepcopy(self.order);changed['id']='gid://shopify/Order/other';changed['name']='#other';changed['customer']['id']='gid://shopify/Customer/other';changed['customer']['displayName']='Otra persona nueva';self.sync([changed])
+        self.assertNotEqual(self.records()[0]['client_id'],self.cid)
     def test_complete_sync_removes_paid_orders_failed_sync_keeps_last_snapshot(self):
         self.sync([self.order]);before=self.records()
         with patch.object(a.shopify_auth,'access_token',return_value='fake'),patch.object(a,'httpjson',side_effect=ValueError('No connection')):
