@@ -206,35 +206,16 @@ function buildClientExplanation(cid,customOpts=null){const cl=S.clients.find(c=>
 function adjustModal(oid){const o=S.orders.find(x=>x.id===oid);if(!o)return;const paid=S.payments.filter(p=>p.order_id===oid&&!p.reversed).reduce((n,p)=>n+p.amount,0);modal('Ajustar saldo · '+o.number,`<form><p class="info-box">Los abonos ya confirmados (${money(paid)}) se conservan.</p><div class="fields"><label>Total de la compra<input name="total" type="number" min="1" step="1" value="${o.total}" required></label><label>Pagos previos al registro<input name="base_paid" type="number" min="0" step="1" value="${o.base_paid}" required></label></div>${actions}</form>`,f=>api('orders/'+oid+'/adjust',{...data(f),count:0}));}
 
 
-async function shareStatementModal(cid){
+function shareStatementModal(cid){
  const cl=S.clients.find(c=>c.id===cid);if(!cl)return;
  const cfg=S.settings||{},replace=t=>String(t).replace(/\{nombre\}/gi,cl.name.split(' ')[0]).replace(/\{saldo\}/gi,money(balance(cid)));
  const message=[replace(cfg.explain_intro||'Hola, {nombre}. Te compartimos tu estado de cuenta de TIENDA CINDY LÚ.'),'Saldo vigente: '+money(balance(cid)),cfg.explain_bank||'',replace(cfg.explain_outro||'Cualquier duda, escríbenos y lo revisamos juntas.')].filter(Boolean).join('\n\n');
  modal('Enviar estado de cuenta por WhatsApp',`
  <p><strong>${esc(cl.name)}</strong> · ${esc(cl.phone||'Sin teléfono')}</p>
  <label>Mensaje editable<textarea id="share-statement-text" rows="7">${esc(message)}</textarea></label>
- <p id="share-statement-status" role="status">Preparando PDF…</p>
- <p class="subtle">Al compartir, elige WhatsApp Business y selecciona a ${esc(cl.name)}. Revisa el mensaje y el PDF antes de enviar. Algunas aplicaciones reciben solo el archivo; puedes copiar el mensaje por separado.</p>
- <div class="form-actions"><button type="button" class="primary" id="share-statement-send" disabled>Compartir mensaje y PDF</button><button type="button" class="outline" id="share-statement-copy">Copiar mensaje</button></div>
- <div id="share-statement-fallback" class="hidden"><p>Este navegador no permite compartir el archivo directamente. Descarga el PDF y adjúntalo en el chat.</p><div class="form-actions"><a class="outline" href="/api/clients/${cid}/statement.pdf" download>Descargar PDF</a><button type="button" class="outline" id="share-statement-open">Abrir chat con mensaje</button></div></div>`);
- const button=$('#share-statement-send'),status=$('#share-statement-status'),input=$('#share-statement-text'),fallback=$('#share-statement-fallback');
- $('#share-statement-open').onclick=()=>openClientWhatsApp(cid,input.value);
- $('#share-statement-copy').onclick=async()=>{try{await navigator.clipboard.writeText(input.value);toast('Mensaje copiado.');}catch{input.select();toast('Selecciona «Copiar» para copiar el mensaje.');}};
- let file;
- try{
-  const response=await fetch('/api/clients/'+cid+'/statement.pdf',{credentials:'same-origin',cache:'no-store'});
-  if(!response.ok||!(response.headers.get('content-type')||'').includes('application/pdf'))throw Error('No se pudo preparar el PDF. Cierra esta ventana e inténtalo nuevamente.');
-  file=new File([await response.blob()],'Estado-de-cuenta-'+cid+'.pdf',{type:'application/pdf'});
-  if(!button.isConnected)return;
-  if(!navigator.share||!navigator.canShare?.({files:[file]})){status.textContent='PDF disponible para descargar.';fallback.classList.remove('hidden');button.classList.add('hidden');return;}
-  status.textContent='PDF listo para compartir.';button.disabled=false;
- }catch(e){if(status.isConnected)status.textContent=e.message;return;}
- button.onclick=async()=>{
-  button.disabled=true;
-  try{await navigator.share({files:[file],text:input.value,title:'Estado de cuenta · TIENDA CINDY LÚ'});status.textContent='Compartido con la aplicación elegida. Verifica allí el envío.';}
-  catch(e){if(e.name==='AbortError')status.textContent='Se canceló la selección para compartir.';else{status.textContent='No se pudo compartir directamente. Puedes descargar el PDF y abrir el chat.';fallback.classList.remove('hidden');}}
-  finally{button.disabled=false;}
- };
+ <p>Descarga el PDF y abre el chat de la clienta. El mensaje aparecerá preparado; adjunta el PDF descargado desde el clip de WhatsApp y revisa antes de enviar.</p>
+ <div class="form-actions"><a class="outline" href="/api/clients/${cid}/statement.pdf" download>1. Descargar PDF</a><button type="button" class="primary" id="share-statement-open">2. Abrir WhatsApp de la clienta</button></div>`);
+ $('#share-statement-open').onclick=()=>openClientWhatsApp(cid,$('#share-statement-text').value);
 }
 
 function openClientWhatsApp(cid,message=null){

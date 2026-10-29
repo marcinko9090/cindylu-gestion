@@ -75,10 +75,16 @@ def snapshot(c,cid,balance,issued):
         items=json.loads(h['items'])
         if items:
             historical.append(dict(number=h['number'],purchased=h['date'],total=h['amount'],items=items,previous=True,status='restructured',source='history'))
-    # Existing local/Shopify cards take precedence; historical products stay descriptive.
-    seen={str(o.get('number') or '').strip().lstrip('#') for o in stored+shopify_orders}
-    stored.extend(h for h in historical if str(h['number']).strip().lstrip('#') not in seen)
+    # Match the ficha: only displayed cards suppress historical product details.
     purchases=purchase_records(stored,shopify_orders)
+    seen={str(o.get('number') or '').strip().lstrip('#') for o in purchases}
+    for h in historical:
+        key=str(h['number']).strip().lstrip('#')
+        if key not in seen and purchase_records([h],[]):
+            purchases.append(h)
+            seen.add(key)
+    purchases.sort(key=lambda o:str(o.get('number') or ''))
+    purchases.sort(key=lambda o:str(o.get('purchased') or ''),reverse=True)
     # All active-account payments, including payments that closed a purchase. Archived imports stay excluded.
     history=[{'date':r['date'],'amount':r['amount'],'kind':'payment','method':r['method'],'number':r['number'] if r['source']!='cxc' else 'Abonos realizados'}
              for r in c.execute("SELECT p.*,o.number,o.source FROM payments p JOIN orders o ON o.id=p.order_id WHERE o.client_id=? AND o.status='active' AND p.reversed=0 ORDER BY p.date,p.id",(cid,))]
