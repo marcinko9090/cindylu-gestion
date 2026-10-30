@@ -148,3 +148,21 @@ body[data-season-variant="1"] .season-banner{border-radius:4px 18px 4px 18px}bod
  #shell th{background:#f5e5c1;color:#69532e}
  #shell .side-title,#shell .side-foot{color:#715c37}
 }
+
+/* Pale blush replaces white workspace surfaces; retain the gold accents. */
+@media screen{
+ #shell{--paper:#fff0f3}
+ #shell #content .card.card{background:#fff0f3}
+ #shell .workplace-group .client-list,
+ #shell .workplace-group .client-list .client-tile,
+ #shell .client-tile{background:#fff0f3}
+ #shell .workplace-group .client-list .client-tile:hover,
+ #shell .workplace-group .client-list .client-tile:focus-visible{background:#f9dfe7}
+ #shell input,#shell select,#shell textarea,
+ #shell .search-wrap input,#shell .suggestions,
+ #shell .suggestions button{background:#fff4f6}
+ #shell .suggestions button:hover,#shell .suggestions button:focus{background:#f9dfe7}
+ #shell .stat,#shell .receipt,#shell .chat-head,#shell .chat-compose{background:#fff0f3}
+ dialog{background:#fff0f3}
+ dialog input,dialog select,dialog textarea{background:#fff7f9}
+}
