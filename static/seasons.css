@@ -90,7 +90,7 @@ body[data-season-variant="1"] .season-banner{border-radius:4px 18px 4px 18px}bod
 
 /* Gold garlands follow the active celebration; quiet days use stars and moons. */
 #shell .page-head{position:relative;padding-top:88px}
-.header-garland{position:absolute;inset:0 0 auto;height:74px;pointer-events:none;user-select:none;overflow:hidden;color:#b48a37;z-index:0;background:radial-gradient(ellipse at 50% 0,#ead7a12e,transparent 72%)}
+.header-garland{position:absolute;inset:0 0 auto;height:74px;pointer-events:none;user-select:none;overflow:hidden;color:#b48a37;z-index:0;background:transparent}
 .header-garland-wire{position:absolute;inset:0 0 auto;width:100%;height:60px;overflow:visible;filter:drop-shadow(0 1px 1px #a0782420)}
 .header-garland-hanger{position:absolute;left:var(--x);top:var(--y);display:flex;flex-direction:column;align-items:center;transform:translateX(-50%);transform-origin:50% 0;animation:cindy-garland-sway 14s var(--delay) ease-in-out infinite alternate}
 .header-garland-thread{display:block;width:1px;height:var(--drop);background:linear-gradient(#ae8034,#e8cf8e,#b1873a);opacity:.85}
@@ -142,7 +142,7 @@ body[data-season-variant="1"] .season-banner{border-radius:4px 18px 4px 18px}bod
  #shell .season-banner-title{color:#64420f}
  #shell .season-banner-greeting{color:#786039}
  #shell .header-garland-charm{color:#ab7416;filter:drop-shadow(0 1px #fff5d1) drop-shadow(0 1px 3px #c8963660)}
- #shell .header-garland{color:#ac791f;background:radial-gradient(ellipse at 50% 0,#efcb7360,transparent 72%)}
+ #shell .header-garland{color:#ac791f;background:transparent}
  #shell .client-directory-tabs button[aria-pressed=true]{background:linear-gradient(115deg,#f8e2ac,#e7c477);border-color:#be9240;color:#513b14}
  #shell .article,#shell .info-box{background:#f5e8c9;border-color:#ddc28d;color:#59472b}
  #shell th{background:#f5e5c1;color:#69532e}
@@ -165,4 +165,35 @@ body[data-season-variant="1"] .season-banner{border-radius:4px 18px 4px 18px}bod
  #shell .stat,#shell .receipt,#shell .chat-head,#shell .chat-compose{background:#fff0f3}
  dialog{background:#fff0f3}
  dialog input,dialog select,dialog textarea{background:#fff7f9}
+}
+
+/* Transparent garland backing and small gold highlights on decorative motifs. */
+@media screen{
+ #shell .header-garland,#shell .season-banner-garland{background:transparent}
+ #shell .header-garland-charm,#shell .season-banner-motif,
+ #shell .side-foot .sparkle,#shell nav button[data-view]>span{position:relative;overflow:visible}
+ #shell .header-garland-charm::after,
+ #shell .season-banner-motif::after,
+ #shell .side-foot .sparkle::after,
+ #shell nav button[data-view]>span::after{
+  content:"";position:absolute;right:-3px;top:3px;width:7px;height:7px;
+  background:#ffe397;clip-path:polygon(50% 0,62% 37%,100% 50%,62% 63%,50% 100%,38% 63%,0 50%,38% 37%);
+  filter:drop-shadow(0 0 2px #e7b740);pointer-events:none;
+  animation:cindy-ornament-glint 4.8s ease-in-out infinite;
+  animation-delay:var(--delay,-1s)
+ }
+ #shell .header-garland-hanger:nth-child(2n) .header-garland-charm::after{animation-delay:-2.6s;top:60%;right:1px}
+ #shell .season-banner-motif,#shell .side-foot .sparkle,
+ #shell nav button[data-view]>span{filter:drop-shadow(0 1px 0 #fff4c8) drop-shadow(0 1px 2px #be8b3855)}
+ #shell .header-garland-charm svg,#shell .season-banner-motif svg,
+ .season-ornament svg{filter:drop-shadow(0 1px 0 #ffe5a3) drop-shadow(0 0 2px #d2a33e70)}
+ #shell .header-garland-wire{filter:drop-shadow(0 1px 0 #fff0be)}
+}
+@keyframes cindy-ornament-glint{
+ 0%,100%{opacity:.35;transform:scale(.65)}
+ 45%,60%{opacity:1;transform:scale(1.15)}
+}
+@media(prefers-reduced-motion:reduce){
+ #shell .header-garland-charm::after,#shell .season-banner-motif::after,
+ #shell .side-foot .sparkle::after,#shell nav button[data-view]>span::after{animation:none;opacity:.75}
 }
