@@ -4,9 +4,9 @@
  const scene=document.querySelector('.intro-scene'),burst=document.querySelector('.intro-burst');
  if(!scene||!burst)return;
  let seed=1977;const random=()=>{seed=(seed*16807)%2147483647;return(seed-1)/2147483646};
- burst.innerHTML=Array.from({length:64},(_,i)=>{
-  const angle=i/64*Math.PI*2,spread=.35+random()*.7;
-  return '<i style="--dx:'+Math.cos(angle)*spread+';--dy:'+Math.sin(angle)*spread+';--size:'+(2+random()*3.5)+'px;--delay:'+(random()*.42)+'s"></i>';
+ burst.innerHTML=Array.from({length:96},(_,i)=>{
+  const angle=i/96*Math.PI*2,spread=.35+random()*.7;
+  return '<i style="--dx:'+Math.cos(angle)*spread+';--dy:'+Math.sin(angle)*spread+';--size:'+(3+random()*4.5)+'px;--delay:'+(random()*.42)+'s"></i>';
  }).join('');
  // Reuse the first presentation's actual soundtrack with softened metallic highs.
  let context=null,track=null,enabled=false,generation=0;

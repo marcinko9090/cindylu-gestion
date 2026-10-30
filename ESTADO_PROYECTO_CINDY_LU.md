@@ -191,3 +191,7 @@
 
 ## Cierre de diferencias con saldo existente
 La revisión de un pedido con compra local permite conservar el saldo registrado y cerrar la revisión. Usa el endpoint existente de revisión con observación y fingerprint; no cambia compras ni abonos. Validación: 124 pruebas Python, resumen anual Node y sintaxis app.js correctas. No se incluyen datos de clientas en el código.
+
+
+## Presentación personalizada · 30 octubre 2026
+Saludo de acceso: «Bienvenida Cindy». Marco original reforzado con degradado dorado brillante y halo suave; escarcha central aumentada a 96 partículas de mayor tamaño, con estrellas y brillo más visible. Conserva sonido, controles y movimiento reducido. Validación: 124 pruebas Python, pruebas anuales Node y sintaxis de ambos scripts correctas.
