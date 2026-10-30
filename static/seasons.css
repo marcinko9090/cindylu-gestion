@@ -128,17 +128,17 @@ body[data-season-variant="1"] .season-banner{border-radius:4px 18px 4px 18px}bod
 
 /* Richer champagne and gold for the private workspace only. */
 @media screen{
- body:has(#shell:not(.hidden)){background:radial-gradient(ellipse at 85% 0,#f7dfa0 0,transparent 55%),#edddbd}
- #shell{--cream:#edddbd;--paper:#fff9ec;--gold:#bb861b;--gold-dark:#795013;--border:#d9be83;--muted:#70624d;--ink:#34291c;--shadow:0 5px 24px #9c6c1712}
- #shell .sidebar.sidebar{background:linear-gradient(165deg,#fff3d7 0,#ecd39d 100%);border-right-color:#c5a15a}
- body[data-season] #shell .sidebar.sidebar{background:linear-gradient(165deg,#fff3d7 0,#ecd39d 100%);border-right-color:#c5a15a}
+ body:has(#shell:not(.hidden)){background:radial-gradient(ellipse at 50% 40%,#f1e2c5 0%,#f5ead5 48%,#fbf6ed 100%)}
+ #shell{--cream:#f5ead5;--paper:#fff9ec;--gold:#bb861b;--gold-dark:#795013;--border:#d9be83;--muted:#70624d;--ink:#34291c;--shadow:0 5px 24px #9c6c1712}
+ #shell .sidebar.sidebar{background:radial-gradient(ellipse at 50% 45%,#f0e0bf 0%,#f6ecd8 58%,#fcf7ee 100%);border-right-color:#c5a15a}
+ body[data-season] #shell .sidebar.sidebar{background:radial-gradient(ellipse at 50% 45%,#f0e0bf 0%,#f6ecd8 58%,#fcf7ee 100%);border-right-color:#c5a15a}
  #shell nav button.active,body[data-season] #shell nav button.active{background:linear-gradient(110deg,#f7dfa1,#dcaf50);color:#51370e;box-shadow:inset 4px 0 #a77313,0 3px 12px #ae7b2026}
  #shell .primary{background:linear-gradient(120deg,#f1d17b,#dbad43 58%,#c38c22);border-color:#b27d19;color:#39290d;box-shadow:inset 0 1px #fff1bc,0 3px 12px #b7863033}
  #shell .outline{background:#fff4d9;border-color:#bd9649;color:#694710}
  #shell #content .card.card{background:linear-gradient(125deg,#fffdf6,#fff5df);border-color:#d4b575;box-shadow:0 5px 24px #95671912}
  body[data-season] #shell #content .card.card{border-color:#d4b575;box-shadow:0 5px 24px #95671912}
  #shell .client-avatar,#shell .avatar{background:linear-gradient(135deg,#ffe9ad,#e2bc64);color:#705018}
- #shell .season-banner.season-banner{background:linear-gradient(110deg,#efd49a,#fff2d0 60%,#e7c47a);border-color:#c5a05a;color:#755016}
+ #shell .season-banner.season-banner{background:radial-gradient(ellipse at 50% 50%,#f2e1bb 0%,#f7ecd5 65%,#fbf5e9 100%);border-color:#c5a05a;color:#755016}
  #shell .season-banner-title{color:#64420f}
  #shell .season-banner-greeting{color:#786039}
  #shell .header-garland-charm{color:#ab7416;filter:drop-shadow(0 1px #fff5d1) drop-shadow(0 1px 3px #c8963660)}
