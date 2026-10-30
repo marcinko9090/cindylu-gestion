@@ -151,20 +151,20 @@ body[data-season-variant="1"] .season-banner{border-radius:4px 18px 4px 18px}bod
 
 /* Pale blush replaces white workspace surfaces; retain the gold accents. */
 @media screen{
- #shell{--paper:#fff0f3}
- #shell #content .card.card{background:#fff0f3}
+ #shell{--paper:#fff7f9}
+ #shell #content .card.card{background:radial-gradient(ellipse at center,#fff3f6 0%,#fff7f9 60%,#fffafb 100%)}
  #shell .workplace-group .client-list,
  #shell .workplace-group .client-list .client-tile,
- #shell .client-tile{background:#fff0f3}
+ #shell .client-tile{background:radial-gradient(ellipse at center,#fff3f6 0%,#fff7f9 60%,#fffafb 100%)}
  #shell .workplace-group .client-list .client-tile:hover,
- #shell .workplace-group .client-list .client-tile:focus-visible{background:#f9dfe7}
+ #shell .workplace-group .client-list .client-tile:focus-visible{background:radial-gradient(ellipse at center,#fbe9ee 0%,#fff7f9 100%)}
  #shell input,#shell select,#shell textarea,
  #shell .search-wrap input,#shell .suggestions,
- #shell .suggestions button{background:#fff4f6}
- #shell .suggestions button:hover,#shell .suggestions button:focus{background:#f9dfe7}
- #shell .stat,#shell .receipt,#shell .chat-head,#shell .chat-compose{background:#fff0f3}
- dialog{background:#fff0f3}
- dialog input,dialog select,dialog textarea{background:#fff7f9}
+ #shell .suggestions button{background:radial-gradient(ellipse at center,#fff6f8 0%,#fffbfc 100%)}
+ #shell .suggestions button:hover,#shell .suggestions button:focus{background:radial-gradient(ellipse at center,#fbe9ee 0%,#fff7f9 100%)}
+ #shell .stat,#shell .receipt,#shell .chat-head,#shell .chat-compose{background:radial-gradient(ellipse at center,#fff3f6 0%,#fff7f9 60%,#fffafb 100%)}
+ dialog{background:radial-gradient(ellipse at center,#fff3f6 0%,#fff7f9 60%,#fffafb 100%)}
+ dialog input,dialog select,dialog textarea{background:radial-gradient(ellipse at center,#fff7f9 0%,#fffcfd 100%)}
 }
 
 /* Transparent garland backing and small gold highlights on decorative motifs. */
